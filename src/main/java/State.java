@@ -7,6 +7,9 @@ public class State {
     final PlayerView playerView;
     final Random rnd;
     final List<Entity> myEntities;
+    final int populationUsed;
+    final int populationTotal;
+    final GlobalStrategy globalStrategy;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -21,7 +24,7 @@ public class State {
         return population;
     }
 
-    private int countPopulationUsed() {
+    private int countUsedPopulation() {
         int population = 0;
         for (Entity entity : playerView.getEntities()) {
             if (entity.getPlayerId() == null || entity.getPlayerId() != playerView.getMyId()) {
@@ -56,11 +59,11 @@ public class State {
             }
             myEntities.add(entity);
         }
-        int populationProvide = playerView.getEntityProperties().get(EntityType.BUILDER_UNIT).getPopulationProvide();
-        int populationUse = playerView.getEntityProperties().get(EntityType.BUILDER_UNIT).getPopulationUse();
-//        System.err.println("can build: " + populationProvide);
         this.rnd = new Random(123);
-        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + countPopulationUsed() + "/" + countTotalPopulation());
+        this.populationUsed = countUsedPopulation();
+        this.populationTotal = countTotalPopulation();
+        this.globalStrategy = new GlobalStrategy(this);
+        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
     }
 
     private void checkCanBuild(EntityType who, EntityType what) {

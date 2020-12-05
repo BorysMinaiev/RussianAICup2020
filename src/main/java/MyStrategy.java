@@ -86,7 +86,8 @@ public class MyStrategy {
             state.repairSomething(builder, repairId);
             return;
         }
-        Position pos = whereToBuildBuilding(state, builder, HOUSE);
+        boolean needMoreHouses = state.globalStrategy.needMoreHouses();
+        Position pos = needMoreHouses ? whereToBuildBuilding(state, builder, HOUSE) : null;
         if (pos != null) {
             state.buildSomething(builder, HOUSE, pos);
         } else {
