@@ -10,7 +10,7 @@ public class MyStrategy {
         if (!state.isEnoughResourcesToBuild(BUILDER_UNIT)) {
             return;
         }
-        Vec2Int pos = pickPositionToBuild(state, building, BUILDER_UNIT);
+        Position pos = pickPositionToBuild(state, building, BUILDER_UNIT);
         state.buildSomething(building, BUILDER_UNIT, pos);
     }
 
@@ -20,7 +20,7 @@ public class MyStrategy {
         }
     }
 
-    Vec2Int pickPosition(List<Vec2Int> positions) {
+    Position pickPosition(List<Position> positions) {
         // TODO: smart things?
         if (positions.isEmpty()) {
             return null;
@@ -28,8 +28,8 @@ public class MyStrategy {
         return positions.get(0);
     }
 
-    Vec2Int pickPositionToBuild(final State state, final Entity who, final EntityType what) {
-        List<Vec2Int> housePositions = state.findPossiblePositionToBuild(who, what);
+    Position pickPositionToBuild(final State state, final Entity who, final EntityType what) {
+        List<Position> housePositions = state.findPossiblePositionToBuild(who, what);
         System.err.println("want to build: " + what + ", ways to put: " + housePositions.size());
         return pickPosition(housePositions);
     }
@@ -38,7 +38,7 @@ public class MyStrategy {
         MoveAction moveAction = null;
         BuildAction buildAction = null;
         moveAction = new MoveAction(
-                new Vec2Int(state.playerView.getMapSize() - 1, state.playerView.getMapSize() - 1),
+                new Position(state.playerView.getMapSize() - 1, state.playerView.getMapSize() - 1),
                 true,
                 true);
         EntityType[] validAutoAttackTargets;
@@ -58,7 +58,7 @@ public class MyStrategy {
         ));
     }
 
-    Vec2Int whereToBuildBuilding(final State state, final Entity builder, final EntityType what) {
+    Position whereToBuildBuilding(final State state, final Entity builder, final EntityType what) {
         if (!state.isEnoughResourcesToBuild(what)) {
             return null;
         }
@@ -86,7 +86,7 @@ public class MyStrategy {
             state.repairSomething(builder, repairId);
             return;
         }
-        Vec2Int pos = whereToBuildBuilding(state, builder, HOUSE);
+        Position pos = whereToBuildBuilding(state, builder, HOUSE);
         if (pos != null) {
             state.buildSomething(builder, HOUSE, pos);
         } else {
@@ -111,7 +111,7 @@ public class MyStrategy {
                 MoveAction moveAction = null;
                 BuildAction buildAction = null;
                 moveAction = new MoveAction(
-                        new Vec2Int(playerView.getMapSize() - 1, playerView.getMapSize() - 1),
+                        new Position(playerView.getMapSize() - 1, playerView.getMapSize() - 1),
                         true,
                         true);
                 EntityType[] validAutoAttackTargets;

@@ -42,13 +42,13 @@ public class Entity {
         this.entityType = entityType;
     }
 
-    private model.Vec2Int position;
+    private Position position;
 
-    public model.Vec2Int getPosition() {
+    public Position getPosition() {
         return position;
     }
 
-    public void setPosition(model.Vec2Int position) {
+    public void setPosition(Position position) {
         this.position = position;
     }
 
@@ -75,7 +75,7 @@ public class Entity {
     public Entity() {
     }
 
-    public Entity(int id, Integer playerId, model.EntityType entityType, model.Vec2Int position, int health, boolean active) {
+    public Entity(int id, Integer playerId, model.EntityType entityType, Position position, int health, boolean active) {
         this.id = id;
         this.playerId = playerId;
         this.entityType = entityType;
@@ -126,7 +126,7 @@ public class Entity {
             default:
                 throw new java.io.IOException("Unexpected tag value");
         }
-        result.position = model.Vec2Int.readFrom(stream);
+        result.position = Position.readFrom(stream);
         result.health = StreamUtil.readInt(stream);
         result.active = StreamUtil.readBoolean(stream);
         return result;

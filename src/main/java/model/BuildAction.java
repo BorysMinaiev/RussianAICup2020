@@ -13,20 +13,20 @@ public class BuildAction {
         this.entityType = entityType;
     }
 
-    private model.Vec2Int position;
+    private Position position;
 
-    public model.Vec2Int getPosition() {
+    public Position getPosition() {
         return position;
     }
 
-    public void setPosition(model.Vec2Int position) {
+    public void setPosition(Position position) {
         this.position = position;
     }
 
     public BuildAction() {
     }
 
-    public BuildAction(model.EntityType entityType, model.Vec2Int position) {
+    public BuildAction(model.EntityType entityType, Position position) {
         this.entityType = entityType;
         this.position = position;
     }
@@ -67,7 +67,7 @@ public class BuildAction {
             default:
                 throw new java.io.IOException("Unexpected tag value");
         }
-        result.position = model.Vec2Int.readFrom(stream);
+        result.position = Position.readFrom(stream);
         return result;
     }
 

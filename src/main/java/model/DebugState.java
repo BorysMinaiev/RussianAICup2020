@@ -3,13 +3,13 @@ package model;
 import util.StreamUtil;
 
 public class DebugState {
-    private model.Vec2Int windowSize;
+    private Position windowSize;
 
-    public model.Vec2Int getWindowSize() {
+    public Position getWindowSize() {
         return windowSize;
     }
 
-    public void setWindowSize(model.Vec2Int windowSize) {
+    public void setWindowSize(Position windowSize) {
         this.windowSize = windowSize;
     }
 
@@ -66,7 +66,7 @@ public class DebugState {
     public DebugState() {
     }
 
-    public DebugState(model.Vec2Int windowSize, model.Vec2Float mousePosWindow, model.Vec2Float mousePosWorld, String[] pressedKeys, model.Camera camera, int playerIndex) {
+    public DebugState(Position windowSize, model.Vec2Float mousePosWindow, model.Vec2Float mousePosWorld, String[] pressedKeys, model.Camera camera, int playerIndex) {
         this.windowSize = windowSize;
         this.mousePosWindow = mousePosWindow;
         this.mousePosWorld = mousePosWorld;
@@ -77,7 +77,7 @@ public class DebugState {
 
     public static DebugState readFrom(java.io.InputStream stream) throws java.io.IOException {
         DebugState result = new DebugState();
-        result.windowSize = model.Vec2Int.readFrom(stream);
+        result.windowSize = Position.readFrom(stream);
         result.mousePosWindow = model.Vec2Float.readFrom(stream);
         result.mousePosWorld = model.Vec2Float.readFrom(stream);
         result.pressedKeys = new String[StreamUtil.readInt(stream)];

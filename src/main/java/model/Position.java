@@ -2,7 +2,7 @@ package model;
 
 import util.StreamUtil;
 
-public class Vec2Int {
+public class Position {
     private int x;
 
 
@@ -29,20 +29,20 @@ public class Vec2Int {
         this.y = y;
     }
 
-    public Vec2Int() {
+    public Position() {
     }
 
-    public Vec2Int(int x, int y) {
+    public Position(int x, int y) {
         this.x = x;
         this.y = y;
     }
 
-    public Vec2Int shift(int dx, int dy) {
-        return new Vec2Int(x + dx, y + dy);
+    public Position shift(int dx, int dy) {
+        return new Position(x + dx, y + dy);
     }
 
-    public static Vec2Int readFrom(java.io.InputStream stream) throws java.io.IOException {
-        Vec2Int result = new Vec2Int();
+    public static Position readFrom(java.io.InputStream stream) throws java.io.IOException {
+        Position result = new Position();
         result.x = StreamUtil.readInt(stream);
         result.y = StreamUtil.readInt(stream);
         return result;

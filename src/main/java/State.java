@@ -32,14 +32,14 @@ public class State {
         return population;
     }
 
-    boolean insideRect(final Vec2Int bottomLeft, final Vec2Int topRight, final Vec2Int pos) {
+    boolean insideRect(final Position bottomLeft, final Position topRight, final Position pos) {
         return pos.getX() >= bottomLeft.getX() && pos.getX() <= topRight.getX() && pos.getY() >= bottomLeft.getY() && pos.getY() <= topRight.getY();
     }
 
     boolean isNearby(final Entity building, final Entity unit) {
-        Vec2Int bottomLeft = building.getPosition().shift(-1, -1);
+        Position bottomLeft = building.getPosition().shift(-1, -1);
         int buildingSize = getEntityProperties(building).getSize();
-        Vec2Int topRight = building.getPosition().shift(buildingSize, buildingSize);
+        Position topRight = building.getPosition().shift(buildingSize, buildingSize);
         return insideRect(bottomLeft, topRight, unit.getPosition());
     }
 
@@ -82,12 +82,12 @@ public class State {
         return getEntityTypeProperties(entity.getEntityType());
     }
 
-    private List<Vec2Int> getPositionsOnRectBorder(Vec2Int bottomLeft, Vec2Int topRight) {
-        List<Vec2Int> positions = new ArrayList<>();
+    private List<Position> getPositionsOnRectBorder(Position bottomLeft, Position topRight) {
+        List<Position> positions = new ArrayList<>();
         for (int x = bottomLeft.getX(); x <= topRight.getX(); x++) {
             for (int y = bottomLeft.getY(); y <= topRight.getY(); y++) {
                 if (x == bottomLeft.getX() || y == bottomLeft.getY() || x == topRight.getX() || y == topRight.getY()) {
-                    positions.add(new Vec2Int(x, y));
+                    positions.add(new Position(x, y));
                 }
             }
         }
@@ -99,7 +99,7 @@ public class State {
         return Math.max(from1, from2) <= Math.min(to1, to2);
     }
 
-    private boolean willIntersect(final Entity entity, final Vec2Int pos, final EntityType type) {
+    private boolean willIntersect(final Entity entity, final Position pos, final EntityType type) {
         int x = entity.getPosition().getX(), y = entity.getPosition().getY();
         int entitySize = getEntityProperties(entity).getSize();
         int newObjSize = getEntityTypeProperties(type).getSize();
@@ -107,7 +107,7 @@ public class State {
                 isSegIntersect(y, y + entitySize - 1, pos.getY(), pos.getY() + newObjSize - 1);
     }
 
-    private boolean canBuild(final Vec2Int pos, final EntityType type) {
+    private boolean canBuild(final Position pos, final EntityType type) {
         if (pos.getX() < 0 || pos.getY() < 0) {
             return false;
         }
@@ -123,14 +123,14 @@ public class State {
         return true;
     }
 
-    public List<Vec2Int> findPossiblePositionToBuild(final Entity who, final EntityType what) {
+    public List<Position> findPossiblePositionToBuild(final Entity who, final EntityType what) {
         int whoSize = getEntityTypeProperties(who.getEntityType()).getSize();
         int whatSize = getEntityTypeProperties(what).getSize();
-        Vec2Int bottomLeft = who.getPosition().shift(-whatSize, -whatSize);
-        Vec2Int topRight = who.getPosition().shift(whoSize, whoSize);
-        List<Vec2Int> possiblePositions = getPositionsOnRectBorder(bottomLeft, topRight);
-        List<Vec2Int> positionsWhereCanBuild = new ArrayList<>();
-        for (Vec2Int pos : possiblePositions) {
+        Position bottomLeft = who.getPosition().shift(-whatSize, -whatSize);
+        Position topRight = who.getPosition().shift(whoSize, whoSize);
+        List<Position> possiblePositions = getPositionsOnRectBorder(bottomLeft, topRight);
+        List<Position> positionsWhereCanBuild = new ArrayList<>();
+        for (Position pos : possiblePositions) {
             if (canBuild(pos, what)) {
                 positionsWhereCanBuild.add(pos);
             }
@@ -148,7 +148,7 @@ public class State {
         actions.getEntityActions().put(who.getId(), new EntityAction(null, null, null, new RepairAction(what)));
     }
 
-    public void buildSomething(final Entity who, final EntityType what, final Vec2Int where) {
+    public void buildSomething(final Entity who, final EntityType what, final Position where) {
         System.err.println(who + " tries to build " + what + " at " + where);
         checkCanBuild(who.getEntityType(), what);
         if (!isEnoughResourcesToBuild(what)) {
