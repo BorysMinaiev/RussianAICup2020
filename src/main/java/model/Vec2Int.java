@@ -5,6 +5,12 @@ import util.StreamUtil;
 public class Vec2Int {
     private int x;
 
+
+    @Override
+    public String toString() {
+        return "{" + x + ", " + y + '}';
+    }
+
     public int getX() {
         return x;
     }
@@ -29,6 +35,10 @@ public class Vec2Int {
     public Vec2Int(int x, int y) {
         this.x = x;
         this.y = y;
+    }
+
+    public Vec2Int shift(int dx, int dy) {
+        return new Vec2Int(x + dx, y + dy);
     }
 
     public static Vec2Int readFrom(java.io.InputStream stream) throws java.io.IOException {

@@ -39,6 +39,10 @@ public class EntityProperties {
         return canMove;
     }
 
+    public boolean isBuilding() {
+        return !isCanMove();
+    }
+
     public void setCanMove(boolean canMove) {
         this.canMove = canMove;
     }
@@ -107,6 +111,10 @@ public class EntityProperties {
 
     public model.BuildProperties getBuild() {
         return build;
+    }
+
+    public EntityType[] getCanBuild() {
+        return build.getOptions();
     }
 
     public void setBuild(model.BuildProperties build) {

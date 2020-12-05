@@ -79,6 +79,15 @@ public class PlayerView {
         return players;
     }
 
+    public Player getMyPlayer() {
+        for (Player p : players) {
+            if (p.getId() == myId) {
+                return p;
+            }
+        }
+        throw new AssertionError("Can't find player with my_id = " + myId);
+    }
+
     public void setPlayers(model.Player[] players) {
         this.players = players;
     }

@@ -9,6 +9,15 @@ public class Entity {
         return id;
     }
 
+    @Override
+    public String toString() {
+        return "Entity{" +
+                "id=" + id + ", entityType=" + entityType +
+                ", position=" + position +
+                ", health=" + health +
+                '}';
+    }
+
     public void setId(int id) {
         this.id = id;
     }
