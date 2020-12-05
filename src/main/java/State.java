@@ -6,14 +6,61 @@ public class State {
     final Action actions;
     final PlayerView playerView;
     final Random rnd;
+    final List<Entity> myEntities;
+
+    private int countTotalPopulation() {
+        int population = 0;
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null || entity.getPlayerId() != playerView.getMyId()) {
+                continue;
+            }
+            if (entity.isActive()) {
+                population += getEntityProperties(entity).getPopulationProvide();
+            }
+        }
+        return population;
+    }
+
+    private int countPopulationUsed() {
+        int population = 0;
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null || entity.getPlayerId() != playerView.getMyId()) {
+                continue;
+            }
+            population += getEntityProperties(entity).getPopulationUse();
+        }
+        return population;
+    }
+
+    boolean insideRect(final Vec2Int bottomLeft, final Vec2Int topRight, final Vec2Int pos) {
+        return pos.getX() >= bottomLeft.getX() && pos.getX() <= topRight.getX() && pos.getY() >= bottomLeft.getY() && pos.getY() <= topRight.getY();
+    }
+
+    boolean isNearby(final Entity building, final Entity unit) {
+        Vec2Int bottomLeft = building.getPosition().shift(-1, -1);
+        int buildingSize = getEntityProperties(building).getSize();
+        Vec2Int topRight = building.getPosition().shift(buildingSize, buildingSize);
+        return insideRect(bottomLeft, topRight, unit.getPosition());
+    }
 
     State(PlayerView playerView) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
+        this.myEntities = new ArrayList<>();
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null) {
+                continue;
+            }
+            if (entity.getPlayerId() != playerView.getMyId()) {
+                continue;
+            }
+            myEntities.add(entity);
+        }
         int populationProvide = playerView.getEntityProperties().get(EntityType.BUILDER_UNIT).getPopulationProvide();
+        int populationUse = playerView.getEntityProperties().get(EntityType.BUILDER_UNIT).getPopulationUse();
 //        System.err.println("can build: " + populationProvide);
         this.rnd = new Random(123);
-        System.err.println("CURRENT TICK: " + playerView.getCurrentTick());
+        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + countPopulationUsed() + "/" + countTotalPopulation());
     }
 
     private void checkCanBuild(EntityType who, EntityType what) {
@@ -95,6 +142,10 @@ public class State {
         int cost = getEntityTypeProperties(what).getInitialCost();
         int money = playerView.getMyPlayer().getResource();
         return cost <= money;
+    }
+
+    public void repairSomething(final Entity who, final int what) {
+        actions.getEntityActions().put(who.getId(), new EntityAction(null, null, null, new RepairAction(what)));
     }
 
     public void buildSomething(final Entity who, final EntityType what, final Vec2Int where) {

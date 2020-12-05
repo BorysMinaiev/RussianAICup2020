@@ -65,7 +65,27 @@ public class MyStrategy {
         return pickPositionToBuild(state, builder, what);
     }
 
+
+    Integer getTargetToRepair(final State state, final Entity builder) {
+        // TODO: repair something not close to me?
+        for (Entity entity : state.myEntities) {
+            if (entity.isActive()) {
+                // TODO: think about this condition?
+                continue;
+            }
+            if (state.isNearby(entity, builder)) {
+                return entity.getId();
+            }
+        }
+        return null;
+    }
+
     void builderStrategy(final State state, final Entity builder) {
+        Integer repairId = getTargetToRepair(state, builder);
+        if (repairId != null) {
+            state.repairSomething(builder, repairId);
+            return;
+        }
         Vec2Int pos = whereToBuildBuilding(state, builder, HOUSE);
         if (pos != null) {
             state.buildSomething(builder, HOUSE, pos);
