@@ -95,6 +95,11 @@ public class MyStrategy {
         }
     }
 
+    void turretStrategy(final State state, final Entity turret) {
+        // TODO: more clever thing?
+        state.attackSomebody(turret);
+    }
+
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
         State state = new State(playerView);
         int myId = playerView.getMyId();
@@ -105,7 +110,11 @@ public class MyStrategy {
             EntityProperties properties = playerView.getEntityProperties().get(entity.getEntityType());
 
             if (properties.isBuilding()) {
-                spawnNewUnits(state, entity);
+                if (entity.getEntityType() == TURRET) {
+                    turretStrategy(state, entity);
+                } else {
+                    spawnNewUnits(state, entity);
+                }
             } else if (entity.getEntityType() == BUILDER_UNIT) {
                 builderStrategy(state, entity);
             } else {

@@ -164,4 +164,14 @@ public class State {
                 null
         ));
     }
+
+    public void attackSomebody(final Entity who) {
+        EntityProperties properties = playerView.getEntityProperties().get(who.getEntityType());
+        actions.getEntityActions().put(who.getId(), new EntityAction(
+                null,
+                null,
+                new AttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})),
+                null
+        ));
+    }
 }
