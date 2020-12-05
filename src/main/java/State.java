@@ -168,15 +168,15 @@ public class State {
 //        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(nearMouse, "heeey: " + mousePos, 0.0f, 40.0f)));
     }
 
-    private void checkCanBuild(EntityType who, EntityType what) {
+    public boolean checkCanBuild(EntityType who, EntityType what) {
         EntityProperties properties = playerView.getEntityProperties().get(who);
         EntityType[] canBuild = properties.getCanBuild();
         for (EntityType can : canBuild) {
             if (can == what) {
-                return;
+                return true;
             }
         }
-        throw new AssertionError(who + " can't build " + what);
+        return false;
     }
 
     public EntityProperties getEntityTypeProperties(EntityType type) {
@@ -191,9 +191,13 @@ public class State {
         List<Position> positions = new ArrayList<>();
         for (int x = bottomLeft.getX(); x <= topRight.getX(); x++) {
             for (int y = bottomLeft.getY(); y <= topRight.getY(); y++) {
-                if (x == bottomLeft.getX() || y == bottomLeft.getY() || x == topRight.getX() || y == topRight.getY()) {
-                    positions.add(new Position(x, y));
+                if (!(x == bottomLeft.getX() || y == bottomLeft.getY() || x == topRight.getX() || y == topRight.getY())) {
+                    continue;
                 }
+                if (inRectVertices(bottomLeft, topRight, new Position(x, y))) {
+                    continue;
+                }
+                positions.add(new Position(x, y));
             }
         }
         Collections.shuffle(positions, rnd);
@@ -255,7 +259,9 @@ public class State {
 
     public void buildSomething(final Entity who, final EntityType what, final Position where) {
         System.err.println(who + " tries to build " + what + " at " + where);
-        checkCanBuild(who.getEntityType(), what);
+        if (!checkCanBuild(who.getEntityType(), what)) {
+            throw new AssertionError(who + " can't build " + what);
+        }
         if (!isEnoughResourcesToBuild(what)) {
             throw new AssertionError("Not enough money to build :(");
         }

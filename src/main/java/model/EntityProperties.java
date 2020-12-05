@@ -114,7 +114,7 @@ public class EntityProperties {
     }
 
     public EntityType[] getCanBuild() {
-        return build.getOptions();
+        return build == null ? new EntityType[]{} : build.getOptions();
     }
 
     public void setBuild(model.BuildProperties build) {

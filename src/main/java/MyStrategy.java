@@ -1,19 +1,21 @@
 import model.*;
 
-import static model.EntityType.*;
+import static model.EntityType.BUILDER_UNIT;
+import static model.EntityType.TURRET;
 
 public class MyStrategy {
-    void spawnBuilder(final State state, final Entity building) {
-        if (!state.isEnoughResourcesToBuild(BUILDER_UNIT)) {
+    void spawnUnit(final State state, final Entity building, final EntityType unitType) {
+        if (!state.isEnoughResourcesToBuild(unitType)) {
             return;
         }
-        Position pos = PositionsPicker.pickPositionToBuild(state, building, BUILDER_UNIT);
-        state.buildSomething(building, BUILDER_UNIT, pos);
+        Position pos = PositionsPicker.pickPositionToBuild(state, building, unitType);
+        state.buildSomething(building, unitType, pos);
     }
 
     void spawnNewUnits(final State state, final Entity building) {
-        if (building.getEntityType() == BUILDER_BASE) {
-            spawnBuilder(state, building);
+        EntityType nextToBuild = state.globalStrategy.whatNextToBuild();
+        if (state.checkCanBuild(building.getEntityType(), nextToBuild)) {
+            spawnUnit(state, building, nextToBuild);
         }
     }
 
