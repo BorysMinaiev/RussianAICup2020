@@ -53,6 +53,8 @@ public class Color {
         this.a = a;
     }
 
+    public static Color RED = new Color(255.0f, 0.0f, 0.0f, 255.0f);
+
     public static Color readFrom(java.io.InputStream stream) throws java.io.IOException {
         Color result = new Color();
         result.r = StreamUtil.readFloat(stream);

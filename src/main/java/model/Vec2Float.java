@@ -42,4 +42,14 @@ public class Vec2Float {
         StreamUtil.writeFloat(stream, x);
         StreamUtil.writeFloat(stream, y);
     }
+
+    public static Vec2Float zero = new Vec2Float(0.0f, 0.0f);
+
+    @Override
+    public String toString() {
+        return "Vec2Float{" +
+                "x=" + x +
+                ", y=" + y +
+                '}';
+    }
 }

@@ -42,6 +42,18 @@ public class ColoredVertex {
         this.color = color;
     }
 
+    public ColoredVertex(model.Vec2Float worldPos, model.Color color) {
+        this.worldPos = worldPos;
+        this.screenOffset = Vec2Float.zero;
+        this.color = color;
+    }
+
+    public ColoredVertex(double x, double y, model.Color color) {
+        this.worldPos = new Vec2Float((float) x, (float) y);
+        this.screenOffset = Vec2Float.zero;
+        this.color = color;
+    }
+
     public static ColoredVertex readFrom(java.io.InputStream stream) throws java.io.IOException {
         ColoredVertex result = new ColoredVertex();
         if (StreamUtil.readBoolean(stream)) {

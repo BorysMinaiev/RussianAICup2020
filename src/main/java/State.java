@@ -10,6 +10,8 @@ public class State {
     final int populationUsed;
     final int populationTotal;
     final GlobalStrategy globalStrategy;
+    final Map<Position, Double> attackedByPos;
+    final Set<Position> occupiedPositions;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -46,7 +48,58 @@ public class State {
         return insideRect(bottomLeft, topRight, unit.getPosition());
     }
 
-    State(PlayerView playerView) {
+    private int dist(int dx, int dy) {
+        return Math.abs(dx) + Math.abs(dy);
+    }
+
+    Map<Position, Double> computeAttackedByPos() {
+        Map<Position, Double> attackedByPos = new HashMap<>();
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null) {
+                continue;
+            }
+            if (entity.getPlayerId() == playerView.getMyId()) {
+                continue;
+            }
+            EntityProperties entityProperties = getEntityProperties(entity);
+            AttackProperties attackProperties = entityProperties.getAttack();
+            if (attackProperties == null) {
+                continue;
+            }
+            int damage = attackProperties.getDamage();
+            if (damage == 0) {
+                continue;
+            }
+            int attackRange = 2 + attackProperties.getAttackRange();
+            for (int dx = -attackRange; dx <= attackRange; dx++) {
+                for (int dy = -attackRange; dy <= attackRange; dy++) {
+                    int dist = dist(dx, dy);
+                    if (dist > attackRange) {
+                        continue;
+                    }
+                    double ratio = (attackRange - dist + 1) / (1.0 + attackRange);
+                    Position pos = entity.getPosition().shift(dx, dy);
+                    attackedByPos.put(pos, attackedByPos.getOrDefault(pos, 0.0) + damage * ratio);
+                }
+            }
+        }
+        return attackedByPos;
+    }
+
+    Set<Position> computeOccupiedPositions() {
+        Set<Position> occupied = new HashSet<>();
+        for (Entity entity : playerView.getEntities()) {
+            EntityProperties entityProperties = getEntityProperties(entity);
+            for (int dx = 0; dx < entityProperties.getSize(); dx++) {
+                for (int dy = 0; dy < entityProperties.getSize(); dy++) {
+                    occupied.add(entity.getPosition().shift(dx, dy));
+                }
+            }
+        }
+        return occupied;
+    }
+
+    State(PlayerView playerView, DebugInterface debugInterface) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
         this.myEntities = new ArrayList<>();
@@ -59,11 +112,38 @@ public class State {
             }
             myEntities.add(entity);
         }
-        this.rnd = new Random(123);
+        this.rnd = new Random(123 + playerView.getCurrentTick());
         this.populationUsed = countUsedPopulation();
         this.populationTotal = countTotalPopulation();
         this.globalStrategy = new GlobalStrategy(this);
+        this.attackedByPos = computeAttackedByPos();
+        this.occupiedPositions = computeOccupiedPositions();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
+        printSomeDebug(debugInterface);
+    }
+
+    void printAttackedBy(DebugInterface debugInterface) {
+        if (!Debug.ATTACKED_BY) {
+            return;
+        }
+        for (Map.Entry<Position, Double> attacked : attackedByPos.entrySet()) {
+            Position pos = attacked.getKey();
+            ColoredVertex v1 = new ColoredVertex(pos.getX(), pos.getY(), Color.RED);
+            ColoredVertex v2 = new ColoredVertex(pos.getX() + 1, pos.getY(), Color.RED);
+            ColoredVertex v3 = new ColoredVertex(pos.getX() + 1, pos.getY() + 1, Color.RED);
+            ColoredVertex v4 = new ColoredVertex(pos.getX(), pos.getY() + 1, Color.RED);
+            ColoredVertex[] vertices = new ColoredVertex[]{v1, v3, v2, v4};
+            debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+        }
+    }
+
+
+    void printSomeDebug(DebugInterface debugInterface) {
+        debugInterface.send(new DebugCommand.Clear());
+//        Vec2Float mousePos = debugInterface.getState().getMousePosWorld();
+        printAttackedBy(debugInterface);
+//        ColoredVertex nearMouse = new ColoredVertex(mousePos, Vec2Float.zero, Color.RED);
+//        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(nearMouse, "heeey: " + mousePos, 0.0f, 40.0f)));
     }
 
     private void checkCanBuild(EntityType who, EntityType what) {
@@ -171,6 +251,43 @@ public class State {
                 null,
                 null,
                 new AttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})),
+                null
+        ));
+    }
+
+    boolean insideMap(Position pos) {
+        return pos.getX() >= 0 &&
+                pos.getY() >= 0 &&
+                pos.getX() < playerView.getMapSize() &&
+                pos.getY() < playerView.getMapSize();
+    }
+
+    public List<Position> getAllPossibleUnitMoves(Entity unit) {
+        List<Position> canGo = new ArrayList<>();
+        int[] dx = new int[]{-1, 0, 0, 1};
+        int[] dy = new int[]{0, -1, 1, 0};
+        for (int it = 0; it < dx.length; it++) {
+            Position checkPos = unit.getPosition().shift(dx[it], dy[it]);
+            if (!insideMap(checkPos)) {
+                continue;
+            }
+            if (occupiedPositions.contains(checkPos)) {
+                continue;
+            }
+            canGo.add(checkPos);
+        }
+        return canGo;
+    }
+
+    public void move(Entity unit, Position where) {
+        MoveAction moveAction = new MoveAction(
+                where,
+                true,
+                true);
+        actions.getEntityActions().put(unit.getId(), new EntityAction(
+                moveAction,
+                null,
+                null,
                 null
         ));
     }
