@@ -12,6 +12,7 @@ public class State {
     final GlobalStrategy globalStrategy;
     final Map<Position, Double> attackedByPos;
     final Set<Position> occupiedPositions;
+    final Map<EntityType, Integer> myEntitiesCount;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -37,6 +38,15 @@ public class State {
         return population;
     }
 
+    boolean inRectVertices(final Position bottomLeft, final Position topRight, final Position pos) {
+        if (pos.distTo(bottomLeft) == 0 || pos.distTo(topRight) == 0) {
+            return true;
+        }
+        final Position bottomRight = new Position(topRight.getX(), bottomLeft.getY());
+        final Position topLeft = new Position(bottomLeft.getX(), topRight.getY());
+        return pos.distTo(topLeft) == 0 || pos.distTo(bottomRight) == 0;
+    }
+
     boolean insideRect(final Position bottomLeft, final Position topRight, final Position pos) {
         return pos.getX() >= bottomLeft.getX() && pos.getX() <= topRight.getX() && pos.getY() >= bottomLeft.getY() && pos.getY() <= topRight.getY();
     }
@@ -45,7 +55,7 @@ public class State {
         Position bottomLeft = building.getPosition().shift(-1, -1);
         int buildingSize = getEntityProperties(building).getSize();
         Position topRight = building.getPosition().shift(buildingSize, buildingSize);
-        return insideRect(bottomLeft, topRight, unit.getPosition());
+        return insideRect(bottomLeft, topRight, unit.getPosition()) && !inRectVertices(bottomLeft, topRight, unit.getPosition());
     }
 
     private int dist(int dx, int dy) {
@@ -99,6 +109,17 @@ public class State {
         return occupied;
     }
 
+    Map<EntityType, Integer> computeMyEntitiesCount() {
+        Map<EntityType, Integer> count = new HashMap<>();
+        for (EntityType type : EntityType.values()) {
+            count.put(type, 0);
+        }
+        for (Entity entity : myEntities) {
+            count.put(entity.getEntityType(), count.get(entity.getEntityType()) + 1);
+        }
+        return count;
+    }
+
     State(PlayerView playerView, DebugInterface debugInterface) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
@@ -118,6 +139,7 @@ public class State {
         this.globalStrategy = new GlobalStrategy(this);
         this.attackedByPos = computeAttackedByPos();
         this.occupiedPositions = computeOccupiedPositions();
+        this.myEntitiesCount = computeMyEntitiesCount();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         printSomeDebug(debugInterface);
     }
@@ -157,11 +179,11 @@ public class State {
         throw new AssertionError(who + " can't build " + what);
     }
 
-    private EntityProperties getEntityTypeProperties(EntityType type) {
+    public EntityProperties getEntityTypeProperties(EntityType type) {
         return playerView.getEntityProperties().get(type);
     }
 
-    private EntityProperties getEntityProperties(Entity entity) {
+    public EntityProperties getEntityProperties(Entity entity) {
         return getEntityTypeProperties(entity.getEntityType());
     }
 

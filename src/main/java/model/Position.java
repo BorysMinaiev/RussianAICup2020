@@ -68,4 +68,8 @@ public class Position {
     public int hashCode() {
         return Objects.hash(x, y);
     }
+
+    public int distTo(Position p) {
+        return Math.abs(p.x - x) + Math.abs(p.y - y);
+    }
 }

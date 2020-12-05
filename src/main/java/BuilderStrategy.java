@@ -3,14 +3,11 @@ import model.*;
 import java.util.Collections;
 import java.util.List;
 
-import static model.EntityType.HOUSE;
-
 public class BuilderStrategy {
     static Integer getTargetToRepair(final State state, final Entity builder) {
         // TODO: repair something not close to me?
         for (Entity entity : state.myEntities) {
-            if (entity.isActive()) {
-                // TODO: think about this condition?
+            if (entity.getHealth() == state.getEntityProperties(entity).getMaxHealth() && entity.isActive()) {
                 continue;
             }
             if (state.isNearby(entity, builder)) {
@@ -82,10 +79,11 @@ public class BuilderStrategy {
                 return;
             }
         }
-        boolean needMoreHouses = state.globalStrategy.needMoreHouses();
-        Position pos = needMoreHouses ? whereToBuildBuilding(state, builder, HOUSE) : null;
+        EntityType whatWeNeedToCreate = state.globalStrategy.whatNextToBuild();
+        boolean needBuildSmth = whatWeNeedToCreate.isBuilding();
+        Position pos = needBuildSmth ? whereToBuildBuilding(state, builder, whatWeNeedToCreate) : null;
         if (pos != null) {
-            state.buildSomething(builder, HOUSE, pos);
+            state.buildSomething(builder, whatWeNeedToCreate, pos);
         } else {
             moveRandomly(state, builder);
         }

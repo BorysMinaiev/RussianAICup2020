@@ -16,4 +16,8 @@ public enum EntityType {
     EntityType(int tag) {
         this.tag = tag;
     }
+
+    public boolean isBuilding() {
+        return this == HOUSE || this == BUILDER_BASE || this == MELEE_BASE || this == RANGED_BASE || this == TURRET;
+    }
 }
