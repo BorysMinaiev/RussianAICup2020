@@ -161,6 +161,9 @@ public class State {
 
 
     void printSomeDebug(DebugInterface debugInterface) {
+        if (debugInterface == null) {
+            return;
+        }
         debugInterface.send(new DebugCommand.Clear());
 //        Vec2Float mousePos = debugInterface.getState().getMousePosWorld();
         printAttackedBy(debugInterface);
