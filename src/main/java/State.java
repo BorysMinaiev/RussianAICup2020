@@ -13,6 +13,7 @@ public class State {
     final Map<Position, Double> attackedByPos;
     final Set<Position> occupiedPositions;
     final Map<EntityType, Integer> myEntitiesCount;
+    int debugPos;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -120,7 +121,7 @@ public class State {
         return count;
     }
 
-    State(PlayerView playerView, DebugInterface debugInterface) {
+    State(PlayerView playerView) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
         this.myEntities = new ArrayList<>();
@@ -141,8 +142,8 @@ public class State {
         this.occupiedPositions = computeOccupiedPositions();
         this.myEntitiesCount = computeMyEntitiesCount();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
-        printSomeDebug(debugInterface);
     }
+
 
     void printAttackedBy(DebugInterface debugInterface) {
         if (!Debug.ATTACKED_BY) {
@@ -159,21 +160,71 @@ public class State {
         }
     }
 
+    void printDebugText(DebugInterface debugInterface, String text, Color color) {
+        ColoredVertex location = new ColoredVertex(new Vec2Float(-12.0f, 1.2f * debugPos), color);
+        debugPos++;
+        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
+    }
+
+    void printDebugTexts(DebugInterface debugInterface, String[] texts, Color color) {
+        for (int it = texts.length - 1; it >= 0; it--) {
+            ColoredVertex location = new ColoredVertex(new Vec2Float(-12.0f, 1.2f * debugPos), color);
+            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, texts[it], 0.0f, 22.0f)));
+            debugPos++;
+        }
+    }
+
     void printEntitiesStat(DebugInterface debugInterface) {
         if (!Debug.ENTITIES_STAT) {
             return;
         }
-        int it = 0;
         for (Map.Entry<EntityType, Integer> entry : myEntitiesCount.entrySet()) {
-            ColoredVertex location = new ColoredVertex(new Vec2Float(-9.0f, 1.2f * it), Color.WHITE);
-            it++;
             final String text = entry.getKey() + ": " + entry.getValue();
-            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
+            printDebugText(debugInterface, text, Color.WHITE);
         }
+        debugPos++;
     }
 
+    void printCurrentBuildTarget(DebugInterface debugInterface) {
+        if (!Debug.PRINT_CURRENT_BUILD_TARGET) {
+            return;
+        }
+        EntityType currentBuildTarget = globalStrategy.whatNextToBuild();
+        printDebugText(debugInterface, "want build: " + currentBuildTarget, Color.YELLOW);
+        debugPos++;
+    }
 
-    void printSomeDebug(DebugInterface debugInterface) {
+    private List<EntityType> getAllBuildActions() {
+        List<EntityType> buildActions = new ArrayList<>();
+        for (Map.Entry<Integer, EntityAction> entry : actions.getEntityActions().entrySet()) {
+            EntityAction action = entry.getValue();
+            BuildAction buildAction = action.getBuildAction();
+            if (buildAction == null) {
+                continue;
+            }
+            buildActions.add(buildAction.getEntityType());
+        }
+        return buildActions;
+    }
+
+    void printBuildActions(DebugInterface debugInterface) {
+        if (!Debug.PRINT_BUILD_ACTIONS) {
+            return;
+        }
+        List<EntityType> buildActions = getAllBuildActions();
+        if (buildActions.isEmpty()) {
+            return;
+        }
+        String[] texts = new String[buildActions.size() + 1];
+        texts[0] = "build actions:";
+        for (int i = 0; i < buildActions.size(); i++) {
+            texts[i + 1] = buildActions.get(i).toString();
+        }
+        printDebugTexts(debugInterface, texts, Color.RED);
+        debugPos++;
+    }
+
+    public void printSomeDebug(DebugInterface debugInterface) {
         if (debugInterface == null) {
             return;
         }
@@ -181,6 +232,8 @@ public class State {
 //        Vec2Float mousePos = debugInterface.getState().getMousePosWorld();
         printAttackedBy(debugInterface);
         printEntitiesStat(debugInterface);
+        printCurrentBuildTarget(debugInterface);
+        printBuildActions(debugInterface);
 //        ColoredVertex nearMouse = new ColoredVertex(mousePos, Vec2Float.zero, Color.RED);
 //        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(nearMouse, "heeey: " + mousePos, 0.0f, 40.0f)));
     }

@@ -25,7 +25,7 @@ public class MyStrategy {
     }
 
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
-        State state = new State(playerView, debugInterface);
+        State state = new State(playerView);
         int myId = playerView.getMyId();
         for (Entity entity : playerView.getEntities()) {
             if (entity.getPlayerId() == null || entity.getPlayerId() != myId) {
@@ -64,6 +64,7 @@ public class MyStrategy {
                 ));
             }
         }
+        state.printSomeDebug(debugInterface);
         return state.actions;
     }
 
