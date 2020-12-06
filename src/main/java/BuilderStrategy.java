@@ -43,7 +43,7 @@ public class BuilderStrategy {
                 moveAction,
                 buildAction,
                 new AttackAction(
-                        null, new AutoAttack(properties.getSightRange(), validAutoAttackTargets)
+                        null, new AutoAttack(properties.getSightRange() * 10, validAutoAttackTargets)
                 ),
                 null
         ));

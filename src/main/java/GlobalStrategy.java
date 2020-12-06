@@ -24,12 +24,13 @@ public class GlobalStrategy {
     static class ExpectedEntitiesDistribution {
         Map<EntityType, Integer> count;
 
-        ExpectedEntitiesDistribution(int builderNum, int turretsNum, int rangesNum) {
+        ExpectedEntitiesDistribution(int builderNum, int turretsNum, int rangesNum, int meleeNum) {
             count = new HashMap<>();
 
             count.put(BUILDER_UNIT, builderNum);
             count.put(TURRET, turretsNum);
             count.put(RANGED_UNIT, rangesNum);
+            count.put(MELEE_UNIT, meleeNum);
         }
 
         EntityType chooseWhatToBuild(final State state) {
@@ -39,6 +40,9 @@ public class GlobalStrategy {
             EntityType best = null;
             for (Map.Entry<EntityType, Integer> entry : count.entrySet()) {
                 int currentCnt = state.myEntitiesCount.get(entry.getKey());
+                if (entry.getValue() == 0) {
+                    continue;
+                }
                 double curCoef = currentCnt / (double) entry.getValue();
                 if (curCoef < smallestCoef) {
                     smallestCoef = curCoef;
@@ -48,7 +52,8 @@ public class GlobalStrategy {
             return best;
         }
 
-        static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1);
+        static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
+        static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
     }
 
     EntityType whatNextToBuild() {
@@ -58,7 +63,8 @@ public class GlobalStrategy {
         if (needMoreHouses()) {
             return HOUSE;
         }
-        return ExpectedEntitiesDistribution.V1.chooseWhatToBuild(state);
+        // TODO: use V2
+        return ExpectedEntitiesDistribution.V2.chooseWhatToBuild(state);
         // TODO: make it smarter
     }
 }

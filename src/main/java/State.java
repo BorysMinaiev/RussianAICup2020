@@ -159,6 +159,19 @@ public class State {
         }
     }
 
+    void printEntitiesStat(DebugInterface debugInterface) {
+        if (!Debug.ENTITIES_STAT) {
+            return;
+        }
+        int it = 0;
+        for (Map.Entry<EntityType, Integer> entry : myEntitiesCount.entrySet()) {
+            ColoredVertex location = new ColoredVertex(new Vec2Float(-9.0f, 1.2f * it), Color.WHITE);
+            it++;
+            final String text = entry.getKey() + ": " + entry.getValue();
+            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
+        }
+    }
+
 
     void printSomeDebug(DebugInterface debugInterface) {
         if (debugInterface == null) {
@@ -167,6 +180,7 @@ public class State {
         debugInterface.send(new DebugCommand.Clear());
 //        Vec2Float mousePos = debugInterface.getState().getMousePosWorld();
         printAttackedBy(debugInterface);
+        printEntitiesStat(debugInterface);
 //        ColoredVertex nearMouse = new ColoredVertex(mousePos, Vec2Float.zero, Color.RED);
 //        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(nearMouse, "heeey: " + mousePos, 0.0f, 40.0f)));
     }
