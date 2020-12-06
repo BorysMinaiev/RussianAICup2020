@@ -58,7 +58,7 @@ public class MyStrategy {
                         moveAction,
                         buildAction,
                         new AttackAction(
-                                null, new AutoAttack(properties.getSightRange(), validAutoAttackTargets)
+                                null, new AutoAttack(properties.getSightRange() * 5, validAutoAttackTargets)
                         ),
                         null
                 ));

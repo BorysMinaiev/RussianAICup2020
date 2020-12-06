@@ -18,8 +18,13 @@ public class GlobalStrategy {
         if (needMoreHouses()) {
             return HOUSE;
         }
+        // TODO: make it smarter
         int buildersNum = state.myEntitiesCount.get(BUILDER_UNIT);
         int turretsNum = state.myEntitiesCount.get(TURRET);
+        int rangesNum = state.myEntitiesCount.get(RANGED_UNIT);
+        if (rangesNum * 5 < buildersNum) {
+            return RANGED_UNIT;
+        }
         if (turretsNum * 5 < buildersNum) {
             return TURRET;
         }
