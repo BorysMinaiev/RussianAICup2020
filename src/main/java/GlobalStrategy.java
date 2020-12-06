@@ -14,7 +14,10 @@ public class GlobalStrategy {
 
     private boolean needMoreHouses() {
         // TODO: think about it?
-        return state.populationTotal - state.populationUsed < 10;
+        boolean reallyNeed = state.populationTotal == state.populationUsed;
+        final int used = state.populationUsed;
+        boolean expectedNeed = state.populationExpected < Math.max(used * 1.1, used + 10);
+        return reallyNeed || expectedNeed;
     }
 
     private boolean needRangedHouse() {
@@ -31,6 +34,10 @@ public class GlobalStrategy {
             count.put(TURRET, turretsNum);
             count.put(RANGED_UNIT, rangesNum);
             count.put(MELEE_UNIT, meleeNum);
+        }
+
+        ExpectedEntitiesDistribution noMoreBuilders() {
+            return new ExpectedEntitiesDistribution(0, count.get(TURRET), count.get(RANGED_UNIT), count.get(MELEE_UNIT));
         }
 
         EntityType chooseWhatToBuild(final State state) {
@@ -56,6 +63,8 @@ public class GlobalStrategy {
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
     }
 
+    final int MAX_BUILDERS = 50;
+
     EntityType whatNextToBuild() {
         if (needRangedHouse()) {
             return RANGED_BASE;
@@ -64,7 +73,11 @@ public class GlobalStrategy {
             return HOUSE;
         }
         // TODO: use V2
-        return ExpectedEntitiesDistribution.V2.chooseWhatToBuild(state);
+        ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V2;
+        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS) {
+            distribution = distribution.noMoreBuilders();
+        }
+        return distribution.chooseWhatToBuild(state);
         // TODO: make it smarter
     }
 }

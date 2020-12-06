@@ -10,6 +10,7 @@ public class State {
     final Map<EntityType, List<Entity>> myEntitiesByType;
     final int populationUsed;
     final int populationTotal;
+    final int populationExpected;
     final GlobalStrategy globalStrategy;
     final Map<Position, Double> attackedByPos;
     final Set<Position> occupiedPositions;
@@ -26,6 +27,17 @@ public class State {
             if (entity.isActive()) {
                 population += getEntityProperties(entity).getPopulationProvide();
             }
+        }
+        return population;
+    }
+
+    private int countExpectedPopulation() {
+        int population = 0;
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null || entity.getPlayerId() != playerView.getMyId()) {
+                continue;
+            }
+            population += getEntityProperties(entity).getPopulationProvide();
         }
         return population;
     }
@@ -168,6 +180,7 @@ public class State {
         this.rnd = new Random(123 + playerView.getCurrentTick());
         this.populationUsed = countUsedPopulation();
         this.populationTotal = countTotalPopulation();
+        this.populationExpected = countExpectedPopulation();
         this.globalStrategy = new GlobalStrategy(this);
         this.attackedByPos = computeAttackedByPos();
         this.occupiedPositions = computeOccupiedPositions();
