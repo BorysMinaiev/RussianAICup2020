@@ -5,6 +5,23 @@ import util.StreamUtil;
 public class EntityAction {
     private model.MoveAction moveAction;
 
+    public static EntityAction createBuildAction(EntityType what, Position where) {
+        return new EntityAction(null, new BuildAction(what, where), null, null);
+    }
+
+    public static EntityAction emptyAction = new EntityAction(null, null, null, null);
+
+    public static EntityAction createMoveAction(Position where, boolean findClosestPosition, boolean breakThrough) {
+        return new EntityAction(new MoveAction(
+                where,
+                findClosestPosition,
+                breakThrough), null, null, null);
+    }
+
+    public static EntityAction createAttackAction(Integer target, AutoAttack autoAttack) {
+        return new EntityAction(null, null, new AttackAction(target, autoAttack), null);
+    }
+
     public model.MoveAction getMoveAction() {
         return moveAction;
     }

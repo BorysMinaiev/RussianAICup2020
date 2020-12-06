@@ -142,8 +142,14 @@ public class State {
         this.occupiedPositions = computeOccupiedPositions();
         this.myEntitiesCount = computeMyEntitiesCount();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
+        defaultDoNothing();
     }
 
+    private void defaultDoNothing() {
+        for (Entity entity : myEntities) {
+            setAction(entity, EntityAction.emptyAction);
+        }
+    }
 
     void printAttackedBy(DebugInterface debugInterface) {
         if (!Debug.ATTACKED_BY) {
@@ -327,6 +333,10 @@ public class State {
         actions.getEntityActions().put(who.getId(), new EntityAction(null, null, null, new RepairAction(what)));
     }
 
+    private void setAction(final Entity entity, final EntityAction action) {
+        actions.getEntityActions().put(entity.getId(), action);
+    }
+
     public void buildSomething(final Entity who, final EntityType what, final Position where) {
         System.err.println(who + " tries to build " + what + " at " + where);
         if (!checkCanBuild(who.getEntityType(), what)) {
@@ -335,22 +345,13 @@ public class State {
         if (!isEnoughResourcesToBuild(what)) {
             throw new AssertionError("Not enough money to build :(");
         }
-        actions.getEntityActions().put(who.getId(), new EntityAction(
-                null,
-                new BuildAction(what, where),
-                null,
-                null
-        ));
+        setAction(who, EntityAction.createBuildAction(what, where));
     }
 
     public void attackSomebody(final Entity who) {
         EntityProperties properties = playerView.getEntityProperties().get(who.getEntityType());
-        actions.getEntityActions().put(who.getId(), new EntityAction(
-                null,
-                null,
-                new AttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})),
-                null
-        ));
+        // TODO: use smarter attack?
+        setAction(who, EntityAction.createAttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})));
     }
 
     boolean insideMap(Position pos) {
@@ -378,15 +379,6 @@ public class State {
     }
 
     public void move(Entity unit, Position where) {
-        MoveAction moveAction = new MoveAction(
-                where,
-                true,
-                true);
-        actions.getEntityActions().put(unit.getId(), new EntityAction(
-                moveAction,
-                null,
-                null,
-                null
-        ));
+        setAction(unit, EntityAction.createMoveAction(where, true, true));
     }
 }
