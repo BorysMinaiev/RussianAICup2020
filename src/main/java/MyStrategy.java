@@ -1,5 +1,7 @@
 import model.*;
 
+import java.util.List;
+
 import static model.EntityType.BUILDER_UNIT;
 import static model.EntityType.TURRET;
 
@@ -27,6 +29,8 @@ public class MyStrategy {
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
         State state = new State(playerView);
         int myId = playerView.getMyId();
+        List<Entity> allBuilderUnits = state.myEntitiesByType.get(BUILDER_UNIT);
+        BuilderStrategy.makeMoveForAll(state, allBuilderUnits);
         for (Entity entity : playerView.getEntities()) {
             if (entity.getPlayerId() == null || entity.getPlayerId() != myId) {
                 continue;
@@ -40,7 +44,8 @@ public class MyStrategy {
                     spawnNewUnits(state, entity);
                 }
             } else if (entity.getEntityType() == BUILDER_UNIT) {
-                BuilderStrategy.makeMove(state, entity);
+
+//                BuilderStrategy.makeMove(state, entity);
             } else {
                 MoveAction moveAction = null;
                 BuildAction buildAction = null;

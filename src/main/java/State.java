@@ -7,11 +7,13 @@ public class State {
     final PlayerView playerView;
     final Random rnd;
     final List<Entity> myEntities;
+    final Map<EntityType, List<Entity>> myEntitiesByType;
     final int populationUsed;
     final int populationTotal;
     final GlobalStrategy globalStrategy;
     final Map<Position, Double> attackedByPos;
     final Set<Position> occupiedPositions;
+    final Set<Position> occupiedByBuildingsPositions;
     final Map<EntityType, Integer> myEntitiesCount;
     int debugPos;
 
@@ -110,6 +112,22 @@ public class State {
         return occupied;
     }
 
+    Set<Position> computeOccupiedByBuildingsPositions() {
+        Set<Position> occupied = new HashSet<>();
+        for (Entity entity : playerView.getEntities()) {
+            EntityProperties entityProperties = getEntityProperties(entity);
+            if (!entityProperties.isBuilding()) {
+                continue;
+            }
+            for (int dx = 0; dx < entityProperties.getSize(); dx++) {
+                for (int dy = 0; dy < entityProperties.getSize(); dy++) {
+                    occupied.add(entity.getPosition().shift(dx, dy));
+                }
+            }
+        }
+        return occupied;
+    }
+
     Map<EntityType, Integer> computeMyEntitiesCount() {
         Map<EntityType, Integer> count = new HashMap<>();
         for (EntityType type : EntityType.values()) {
@@ -117,6 +135,18 @@ public class State {
         }
         for (Entity entity : myEntities) {
             count.put(entity.getEntityType(), count.get(entity.getEntityType()) + 1);
+        }
+        return count;
+    }
+
+    Map<EntityType, List<Entity>> computeMyEntitiesByType() {
+        Map<EntityType, List<Entity>> count = new HashMap<>();
+        for (EntityType type : EntityType.values()) {
+            count.put(type, new ArrayList<>());
+        }
+        for (Entity entity : myEntities) {
+            List<Entity> list = count.get(entity.getEntityType());
+            list.add(entity);
         }
         return count;
     }
@@ -134,12 +164,14 @@ public class State {
             }
             myEntities.add(entity);
         }
+        this.myEntitiesByType = computeMyEntitiesByType();
         this.rnd = new Random(123 + playerView.getCurrentTick());
         this.populationUsed = countUsedPopulation();
         this.populationTotal = countTotalPopulation();
         this.globalStrategy = new GlobalStrategy(this);
         this.attackedByPos = computeAttackedByPos();
         this.occupiedPositions = computeOccupiedPositions();
+        this.occupiedByBuildingsPositions = computeOccupiedByBuildingsPositions();
         this.myEntitiesCount = computeMyEntitiesCount();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
@@ -339,6 +371,9 @@ public class State {
 
     public void buildSomething(final Entity who, final EntityType what, final Position where) {
         System.err.println(who + " tries to build " + what + " at " + where);
+        if (where == null) {
+            throw new AssertionError();
+        }
         if (!checkCanBuild(who.getEntityType(), what)) {
             throw new AssertionError(who + " can't build " + what);
         }
@@ -380,5 +415,9 @@ public class State {
 
     public void move(Entity unit, Position where) {
         setAction(unit, EntityAction.createMoveAction(where, true, true));
+    }
+
+    public boolean isOccupiedByBuilding(Position position) {
+        return occupiedByBuildingsPositions.contains(position);
     }
 }
