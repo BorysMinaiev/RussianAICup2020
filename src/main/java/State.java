@@ -196,97 +196,9 @@ public class State {
         }
     }
 
-    void printAttackedBy(DebugInterface debugInterface) {
-        if (!Debug.ATTACKED_BY) {
-            return;
-        }
-        for (Map.Entry<Position, Double> attacked : attackedByPos.entrySet()) {
-            Position pos = attacked.getKey();
-            ColoredVertex v1 = new ColoredVertex(pos.getX(), pos.getY(), Color.RED);
-            ColoredVertex v2 = new ColoredVertex(pos.getX() + 1, pos.getY(), Color.RED);
-            ColoredVertex v3 = new ColoredVertex(pos.getX() + 1, pos.getY() + 1, Color.RED);
-            ColoredVertex v4 = new ColoredVertex(pos.getX(), pos.getY() + 1, Color.RED);
-            ColoredVertex[] vertices = new ColoredVertex[]{v1, v3, v2, v4};
-            debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
-        }
-    }
-
-    void printDebugText(DebugInterface debugInterface, String text, Color color) {
-        ColoredVertex location = new ColoredVertex(new Vec2Float(-12.0f, 1.2f * debugPos), color);
-        debugPos++;
-        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
-    }
-
-    void printDebugTexts(DebugInterface debugInterface, String[] texts, Color color) {
-        for (int it = texts.length - 1; it >= 0; it--) {
-            ColoredVertex location = new ColoredVertex(new Vec2Float(-12.0f, 1.2f * debugPos), color);
-            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, texts[it], 0.0f, 22.0f)));
-            debugPos++;
-        }
-    }
-
-    void printEntitiesStat(DebugInterface debugInterface) {
-        if (!Debug.ENTITIES_STAT) {
-            return;
-        }
-        for (Map.Entry<EntityType, Integer> entry : myEntitiesCount.entrySet()) {
-            final String text = entry.getKey() + ": " + entry.getValue();
-            printDebugText(debugInterface, text, Color.WHITE);
-        }
-        debugPos++;
-    }
-
-    void printCurrentBuildTarget(DebugInterface debugInterface) {
-        if (!Debug.PRINT_CURRENT_BUILD_TARGET) {
-            return;
-        }
-        EntityType currentBuildTarget = globalStrategy.whatNextToBuild();
-        printDebugText(debugInterface, "want build: " + currentBuildTarget, Color.YELLOW);
-        debugPos++;
-    }
-
-    private List<EntityType> getAllBuildActions() {
-        List<EntityType> buildActions = new ArrayList<>();
-        for (Map.Entry<Integer, EntityAction> entry : actions.getEntityActions().entrySet()) {
-            EntityAction action = entry.getValue();
-            BuildAction buildAction = action.getBuildAction();
-            if (buildAction == null) {
-                continue;
-            }
-            buildActions.add(buildAction.getEntityType());
-        }
-        return buildActions;
-    }
-
-    void printBuildActions(DebugInterface debugInterface) {
-        if (!Debug.PRINT_BUILD_ACTIONS) {
-            return;
-        }
-        List<EntityType> buildActions = getAllBuildActions();
-        if (buildActions.isEmpty()) {
-            return;
-        }
-        String[] texts = new String[buildActions.size() + 1];
-        texts[0] = "build actions:";
-        for (int i = 0; i < buildActions.size(); i++) {
-            texts[i + 1] = buildActions.get(i).toString();
-        }
-        printDebugTexts(debugInterface, texts, Color.RED);
-        debugPos++;
-    }
 
     public void printSomeDebug(DebugInterface debugInterface) {
-        if (debugInterface == null) {
-            return;
-        }
-        debugInterface.send(new DebugCommand.Clear());
-//        Vec2Float mousePos = debugInterface.getState().getMousePosWorld();
-        printAttackedBy(debugInterface);
-        printEntitiesStat(debugInterface);
-        printCurrentBuildTarget(debugInterface);
-        printBuildActions(debugInterface);
-//        ColoredVertex nearMouse = new ColoredVertex(mousePos, Vec2Float.zero, Color.RED);
-//        debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(nearMouse, "heeey: " + mousePos, 0.0f, 40.0f)));
+        Debug.printSomeDebug(debugInterface, this);
     }
 
     public boolean checkCanBuild(EntityType who, EntityType what) {
