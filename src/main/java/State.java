@@ -87,6 +87,9 @@ public class State {
             if (entity.getPlayerId() == playerView.getMyId()) {
                 continue;
             }
+            if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
+                continue;
+            }
             EntityProperties entityProperties = getEntityProperties(entity);
             AttackProperties attackProperties = entityProperties.getAttack();
             if (attackProperties == null) {
