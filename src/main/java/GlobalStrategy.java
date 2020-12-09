@@ -1,7 +1,8 @@
+import model.BuildProperties;
+import model.Entity;
 import model.EntityType;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static model.EntityType.*;
 
@@ -29,6 +30,10 @@ public class GlobalStrategy {
         boolean currentlyBuildingALot = state.populationExpected >= used + 15 ||
                 (used == 15 && state.populationExpected == 25);
         return (reallyNeed && !currentlyBuildingALot) || expectedNeed;
+    }
+
+    private boolean hasEnoughHousesToBuildUnits() {
+        return state.populationUsed < state.populationTotal;
     }
 
     private boolean needRangedHouse() {
@@ -70,6 +75,7 @@ public class GlobalStrategy {
             return best;
         }
 
+
         static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
     }
@@ -80,7 +86,71 @@ public class GlobalStrategy {
         return state.myEntitiesCount.get(BUILDER_UNIT) < 20 && state.playerView.getCurrentTick() < 100;
     }
 
+    class RequiresProtection implements Comparable<RequiresProtection> {
+        final Entity building;
+        final EntityType canProduce;
+        final double dangerLevel;
+
+        public RequiresProtection(Entity building, EntityType canProduce, double dangerLevel) {
+            this.building = building;
+            this.canProduce = canProduce;
+            this.dangerLevel = dangerLevel;
+        }
+
+        @Override
+        public int compareTo(RequiresProtection o) {
+            return -Double.compare(dangerLevel, o.dangerLevel);
+        }
+    }
+
+    final int DIST_TO_CONSIDER_DANGER = 20;
+
+    private double calcDangerLevel(final Entity building) {
+        double dangerLevel = 0.0;
+        for (Entity enemyUnit : state.allEnemiesWarUnits) {
+            int dist = CellsUtils.distBetweenTwoEntities(state, enemyUnit, building);
+            if (dist <= DIST_TO_CONSIDER_DANGER) {
+                dangerLevel++;
+            }
+        }
+        return dangerLevel;
+    }
+
+    private EntityType needToProtectSomething() {
+
+        List<RequiresProtection> requiresProtections = new ArrayList<>();
+        for (EntityType buildingTypeToProtect : new EntityType[]{RANGED_BASE, MELEE_BASE}) {
+            List<Entity> buildings = state.myEntitiesByType.get(buildingTypeToProtect);
+            if (buildings.size() != 1) {
+                continue;
+            }
+            Entity buildingToProtect = buildings.get(0);
+            double dangerLevel = calcDangerLevel(buildingToProtect);
+            if (dangerLevel == 0) {
+                continue;
+            }
+            BuildProperties properties = state.getEntityProperties(buildingToProtect).getBuild();
+            if (properties == null) {
+                throw new AssertionError("Can't build anything?");
+            }
+            EntityType[] whatCanBuild = properties.getOptions();
+            if (whatCanBuild.length < 1) {
+                throw new AssertionError("very strange?");
+            }
+            requiresProtections.add(new RequiresProtection(buildingToProtect, whatCanBuild[0], dangerLevel));
+        }
+        Collections.sort(requiresProtections);
+        if (requiresProtections.isEmpty()) {
+            return null;
+        }
+        return requiresProtections.get(0).canProduce;
+    }
+
     EntityType whatNextToBuild() {
+        EntityType toProtect = needToProtectSomething();
+        if (toProtect != null && hasEnoughHousesToBuildUnits()) {
+            return toProtect;
+        }
         if (needRangedHouse()) {
             return RANGED_BASE;
         }

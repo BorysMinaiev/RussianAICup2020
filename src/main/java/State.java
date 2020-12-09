@@ -7,6 +7,7 @@ public class State {
     final PlayerView playerView;
     final Random rnd;
     final List<Entity> myEntities;
+    final List<Entity> allEnemiesWarUnits;
     final Map<EntityType, List<Entity>> myEntitiesByType;
     final int populationUsed;
     final int populationTotal;
@@ -184,10 +185,28 @@ public class State {
         return count;
     }
 
-    State(PlayerView playerView) {
-        this.actions = new Action(new HashMap<>());
-        this.playerView = playerView;
-        this.myEntities = new ArrayList<>();
+    List<Entity> computeAllEnemiesWarUnits() {
+        List<Entity> enemiesUnits = new ArrayList<>();
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null) {
+                continue;
+            }
+            if (entity.getPlayerId() == playerView.getMyId()) {
+                continue;
+            }
+            if (entity.getEntityType().isBuilding()) {
+                continue;
+            }
+            if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
+                continue;
+            }
+            enemiesUnits.add(entity);
+        }
+        return enemiesUnits;
+    }
+
+    List<Entity> computeMyEntities() {
+        List<Entity> myEntities = new ArrayList<>();
         for (Entity entity : playerView.getEntities()) {
             if (entity.getPlayerId() == null) {
                 continue;
@@ -197,6 +216,14 @@ public class State {
             }
             myEntities.add(entity);
         }
+        return myEntities;
+    }
+
+    State(PlayerView playerView) {
+        this.actions = new Action(new HashMap<>());
+        this.playerView = playerView;
+        this.myEntities = computeMyEntities();
+        this.allEnemiesWarUnits = computeAllEnemiesWarUnits();
         this.myEntitiesByType = computeMyEntitiesByType();
         this.rnd = new Random(123 + playerView.getCurrentTick());
         this.populationUsed = countUsedPopulation();
