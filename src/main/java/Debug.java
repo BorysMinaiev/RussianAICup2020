@@ -134,7 +134,7 @@ public class Debug {
 
 
     public static void printSomeDebug(final DebugInterface debugInterface, final State state) {
-        if (debugInterface == null) {
+        if (debugInterface == null || state.playerView.getMyId() != 1) {
             return;
         }
         debugInterface.send(new DebugCommand.SetAutoFlush(false));
