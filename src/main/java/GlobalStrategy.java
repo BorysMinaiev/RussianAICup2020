@@ -12,12 +12,23 @@ public class GlobalStrategy {
         this.state = state;
     }
 
+    private boolean expectedNeedHouse(int currentUsage, int currentExpected) {
+        if (currentUsage < 10) {
+            return false;
+        }
+        if (currentUsage < 20) {
+            return currentExpected < currentUsage + 5;
+        }
+        return currentExpected < Math.max(currentUsage * 1.1, currentUsage + 10);
+    }
+
     private boolean needMoreHouses() {
-        // TODO: think about it?
         boolean reallyNeed = state.populationTotal == state.populationUsed;
         final int used = state.populationUsed;
-        boolean expectedNeed = state.populationExpected < Math.max(used * 1.1, used + 10);
-        return reallyNeed || expectedNeed;
+        boolean expectedNeed = expectedNeedHouse(used, state.populationExpected);
+        boolean currentlyBuildingALot = state.populationExpected >= used + 15 ||
+                (used == 15 && state.populationExpected == 25);
+        return (reallyNeed && !currentlyBuildingALot) || expectedNeed;
     }
 
     private boolean needRangedHouse() {
@@ -65,12 +76,19 @@ public class GlobalStrategy {
 
     final int MAX_BUILDERS = 50;
 
+    private boolean needMoreBuilders() {
+        return state.myEntitiesCount.get(BUILDER_UNIT) < 20 && state.playerView.getCurrentTick() < 100;
+    }
+
     EntityType whatNextToBuild() {
         if (needRangedHouse()) {
             return RANGED_BASE;
         }
         if (needMoreHouses()) {
             return HOUSE;
+        }
+        if (needMoreBuilders()) {
+            return BUILDER_UNIT;
         }
         // TODO: use V2
         ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V2;
