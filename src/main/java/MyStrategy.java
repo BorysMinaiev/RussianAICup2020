@@ -10,7 +10,10 @@ public class MyStrategy {
         if (!state.isEnoughResourcesToBuild(unitType)) {
             return;
         }
-        Position pos = PositionsPicker.pickPositionToBuild(state, building, unitType);
+        Position pos = PositionsPicker.pickPositionToBuildUnit(state, building, unitType);
+        if (pos == null) {
+            return;
+        }
         state.buildSomething(building, unitType, pos);
     }
 

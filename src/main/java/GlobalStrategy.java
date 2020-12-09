@@ -86,7 +86,7 @@ public class GlobalStrategy {
         return state.myEntitiesCount.get(BUILDER_UNIT) < 20 && state.playerView.getCurrentTick() < 100;
     }
 
-    class RequiresProtection implements Comparable<RequiresProtection> {
+    static class RequiresProtection implements Comparable<RequiresProtection> {
         final Entity building;
         final EntityType canProduce;
         final double dangerLevel;
@@ -146,7 +146,18 @@ public class GlobalStrategy {
         return requiresProtections.get(0).canProduce;
     }
 
+    EntityType cachedWhatToBuild;
+    boolean whatToBuildWasCached;
+
     EntityType whatNextToBuild() {
+        if (!whatToBuildWasCached) {
+            cachedWhatToBuild = whatNextToBuildWithoutCache();
+            whatToBuildWasCached = true;
+        }
+        return cachedWhatToBuild;
+    }
+
+    EntityType whatNextToBuildWithoutCache() {
         EntityType toProtect = needToProtectSomething();
         if (toProtect != null && hasEnoughHousesToBuildUnits()) {
             return toProtect;
@@ -160,7 +171,6 @@ public class GlobalStrategy {
         if (needMoreBuilders()) {
             return BUILDER_UNIT;
         }
-        // TODO: use V2
         ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V2;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS) {
             distribution = distribution.noMoreBuilders();

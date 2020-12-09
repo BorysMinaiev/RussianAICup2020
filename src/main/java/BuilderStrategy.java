@@ -18,14 +18,6 @@ public class BuilderStrategy {
         return null;
     }
 
-    static Position whereToBuildBuilding(final State state, final Entity builder, final EntityType what) {
-        if (!state.isEnoughResourcesToBuild(what)) {
-            return null;
-        }
-        return PositionsPicker.pickPositionToBuild(state, builder, what);
-    }
-
-
     static void moveRandomly(final State state, final Entity unit) {
         MoveAction moveAction = null;
         BuildAction buildAction = null;
@@ -67,27 +59,6 @@ public class BuilderStrategy {
         }
         state.move(builder, bestPosToGo);
         return true;
-    }
-
-    static void makeMove(final State state, final Entity builder) {
-        Integer repairId = getTargetToRepair(state, builder);
-        if (repairId != null) {
-            state.repairSomething(builder, repairId);
-            return;
-        }
-        if (state.attackedByPos.get(builder.getPosition()) != null) {
-            if (moveAwayFromAttack(state, builder)) {
-                return;
-            }
-        }
-        EntityType whatWeNeedToCreate = state.globalStrategy.whatNextToBuild();
-        boolean needBuildSmth = whatWeNeedToCreate.isBuilding();
-        Position pos = needBuildSmth ? whereToBuildBuilding(state, builder, whatWeNeedToCreate) : null;
-        if (pos != null) {
-            state.buildSomething(builder, whatWeNeedToCreate, pos);
-        } else {
-            moveRandomly(state, builder);
-        }
     }
 
     static class BuildOption implements Comparable<BuildOption> {

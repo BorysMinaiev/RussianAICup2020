@@ -18,6 +18,7 @@ public class State {
     final Set<Position> occupiedByBuildingsPositions;
     final Map<EntityType, Integer> myEntitiesCount;
     final Map<Integer, Map<EntityType, Integer>> entitiesByPlayer;
+    final List<Entity> allResources;
     int debugPos = 30;
 
     private int countTotalPopulation() {
@@ -219,6 +220,16 @@ public class State {
         return myEntities;
     }
 
+    List<Entity> computeAllResourcesList() {
+        List<Entity> resources = new ArrayList<>();
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getEntityType() == EntityType.RESOURCE) {
+                resources.add(entity);
+            }
+        }
+        return resources;
+    }
+
     State(PlayerView playerView) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
@@ -235,6 +246,7 @@ public class State {
         this.occupiedByBuildingsPositions = computeOccupiedByBuildingsPositions();
         this.myEntitiesCount = computeMyEntitiesCount(this.myEntities);
         this.entitiesByPlayer = computeEntitiesByPlayer();
+        this.allResources = computeAllResourcesList();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
     }
