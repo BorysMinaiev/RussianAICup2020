@@ -137,10 +137,13 @@ public class Debug {
         if (debugInterface == null) {
             return;
         }
+        debugInterface.send(new DebugCommand.SetAutoFlush(false));
 
         printAttackedBy(state, debugInterface);
         printEntitiesStat(state, debugInterface);
         printCurrentBuildTarget(state, debugInterface);
         printBuildActions(state, debugInterface);
+
+        debugInterface.send(new DebugCommand.Flush());
     }
 }
