@@ -19,6 +19,7 @@ public class State {
     final Map<EntityType, Integer> myEntitiesCount;
     final Map<Integer, Map<EntityType, Integer>> entitiesByPlayer;
     final List<Entity> allResources;
+    final int totalResources;
     int debugPos = 30;
 
     private int countTotalPopulation() {
@@ -247,8 +248,17 @@ public class State {
         this.myEntitiesCount = computeMyEntitiesCount(this.myEntities);
         this.entitiesByPlayer = computeEntitiesByPlayer();
         this.allResources = computeAllResourcesList();
+        this.totalResources = computeTotalResources();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
+    }
+
+    private int computeTotalResources() {
+        int totalResources = 0;
+        for (Entity resource : allResources) {
+            totalResources += resource.getHealth();
+        }
+        return totalResources;
     }
 
     private void defaultDoNothing() {

@@ -7,6 +7,7 @@ import java.util.*;
 import static model.EntityType.*;
 
 public class GlobalStrategy {
+    private static final int LOW_TOTAL_RESOURCES = 10000;
     State state;
 
     public GlobalStrategy(State state) {
@@ -172,7 +173,7 @@ public class GlobalStrategy {
             return BUILDER_UNIT;
         }
         ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V2;
-        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS) {
+        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || state.totalResources < LOW_TOTAL_RESOURCES) {
             distribution = distribution.noMoreBuilders();
         }
         return distribution.chooseWhatToBuild(state);

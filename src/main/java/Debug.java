@@ -142,8 +142,13 @@ public class Debug {
         printAttackedBy(state, debugInterface);
         printEntitiesStat(state, debugInterface);
         printCurrentBuildTarget(state, debugInterface);
+        printTotalResourcesLeft(state, debugInterface);
         printBuildActions(state, debugInterface);
 
         debugInterface.send(new DebugCommand.Flush());
+    }
+
+    private static void printTotalResourcesLeft(State state, DebugInterface debugInterface) {
+        printDebugText(state, debugInterface, "RESOURCES TOTAL: " + state.totalResources, Color.ORANGE);
     }
 }
