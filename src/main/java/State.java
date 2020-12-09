@@ -16,7 +16,8 @@ public class State {
     final Set<Position> occupiedPositions;
     final Set<Position> occupiedByBuildingsPositions;
     final Map<EntityType, Integer> myEntitiesCount;
-    int debugPos;
+    final Map<Integer, Map<EntityType, Integer>> entitiesByPlayer;
+    int debugPos = 30;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -140,15 +141,32 @@ public class State {
         return occupied;
     }
 
-    Map<EntityType, Integer> computeMyEntitiesCount() {
+    Map<EntityType, Integer> computeMyEntitiesCount(List<Entity> entities) {
         Map<EntityType, Integer> count = new HashMap<>();
         for (EntityType type : EntityType.values()) {
             count.put(type, 0);
         }
-        for (Entity entity : myEntities) {
+        for (Entity entity : entities) {
             count.put(entity.getEntityType(), count.get(entity.getEntityType()) + 1);
         }
         return count;
+    }
+
+    Map<Integer, Map<EntityType, Integer>> computeEntitiesByPlayer() {
+        Map<Integer, List<Entity>> entitiesByPlayer = new HashMap<>();
+        for (Entity entity : playerView.getEntities()) {
+            Integer playerId = entity.getPlayerId();
+            if (playerId == null) {
+                continue;
+            }
+            List<Entity> playerEntities = entitiesByPlayer.computeIfAbsent(playerId, k -> new ArrayList<>());
+            playerEntities.add(entity);
+        }
+        Map<Integer, Map<EntityType, Integer>> result = new HashMap<>();
+        for (Map.Entry<Integer, List<Entity>> entry : entitiesByPlayer.entrySet()) {
+            result.put(entry.getKey(), computeMyEntitiesCount(entry.getValue()));
+        }
+        return result;
     }
 
     Map<EntityType, List<Entity>> computeMyEntitiesByType() {
@@ -185,7 +203,8 @@ public class State {
         this.attackedByPos = computeAttackedByPos();
         this.occupiedPositions = computeOccupiedPositions();
         this.occupiedByBuildingsPositions = computeOccupiedByBuildingsPositions();
-        this.myEntitiesCount = computeMyEntitiesCount();
+        this.myEntitiesCount = computeMyEntitiesCount(this.myEntities);
+        this.entitiesByPlayer = computeEntitiesByPlayer();
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
     }

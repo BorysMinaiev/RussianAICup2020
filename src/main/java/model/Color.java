@@ -54,6 +54,9 @@ public class Color {
     }
 
     public static Color RED = new Color(255.0f, 0.0f, 0.0f, 255.0f);
+    public static Color BLUE = new Color(0.0f, 0.0f, 255.0f, 255.0f);
+    public static Color GREEN = new Color(0.0f, 255.0f, 0.0f, 255.0f);
+    public static Color ORANGE = new Color(255.0f, 165.0f, 0.0f, 255.0f);
     public static Color WHITE = new Color(255.0f, 255.0f, 255.0f, 255.0f);
     public static Color YELLOW = new Color(255.0f, 255.0f, 0.0f, 255.0f);
 

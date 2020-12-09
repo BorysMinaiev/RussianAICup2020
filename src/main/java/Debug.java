@@ -1,6 +1,7 @@
 import model.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,15 +40,57 @@ public class Debug {
         }
     }
 
+    private static class TextLine {
+        final Color color;
+        final String text;
+
+        public TextLine(Color color, String text) {
+            this.color = color;
+            this.text = text;
+        }
+    }
+
+    static void printTextBlock(final DebugInterface debugInterface, final List<TextLine> lines, final Vec2Float offset) {
+        for (int i = 0; i < lines.size(); i++) {
+            final String text = lines.get(i).text;
+            ColoredVertex location = new ColoredVertex(new Vec2Float(0.0f, -1.2f * i).shift(offset.getX(), offset.getY()), lines.get(i).color);
+            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
+        }
+    }
+
     private static void printEntitiesStat(final State state, DebugInterface debugInterface) {
         if (!Debug.ENTITIES_STAT) {
             return;
         }
-        for (Map.Entry<EntityType, Integer> entry : state.myEntitiesCount.entrySet()) {
-            final String text = entry.getKey() + ": " + entry.getValue();
-            printDebugText(state, debugInterface, text, Color.WHITE);
+
+        Map<Integer, Vec2Float> offsetsByPlayer = new HashMap<>();
+        Map<Integer, Color> colorByPlayer = new HashMap<>();
+        float xOffset = -10f;
+        float yOffset = 15f;
+        final int mapSize = state.playerView.getMapSize();
+        /*
+         *  |4 2|
+         *  |1 3|
+         */
+        offsetsByPlayer.put(1, new Vec2Float(xOffset, yOffset));
+        colorByPlayer.put(1, Color.BLUE);
+        offsetsByPlayer.put(2, new Vec2Float(mapSize + 1f, mapSize - 1f));
+        colorByPlayer.put(2, Color.GREEN);
+        offsetsByPlayer.put(3, new Vec2Float(mapSize + 1f, yOffset));
+        colorByPlayer.put(3, Color.RED);
+        offsetsByPlayer.put(4, new Vec2Float(xOffset, mapSize - 1));
+        colorByPlayer.put(4, Color.ORANGE);
+        // TODO: for all players?
+        for (Map.Entry<Integer, Map<EntityType, Integer>> playerMap : state.entitiesByPlayer.entrySet()) {
+            int playerId = playerMap.getKey();
+            List<TextLine> lines = new ArrayList<>();
+            for (Map.Entry<EntityType, Integer> entry : playerMap.getValue().entrySet()) {
+                final String text = entry.getKey() + ": " + entry.getValue();
+                lines.add(new TextLine(colorByPlayer.get(playerId), text));
+            }
+            Vec2Float offset = offsetsByPlayer.get(playerId);
+            printTextBlock(debugInterface, lines, offset);
         }
-        state.debugPos++;
     }
 
     private static void printCurrentBuildTarget(final State state, DebugInterface debugInterface) {
