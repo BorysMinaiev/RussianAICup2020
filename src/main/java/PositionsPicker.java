@@ -15,7 +15,7 @@ public class PositionsPicker {
         return positions.get(0);
     }
 
-    static Position getTarget(final State state, final Entity building, EntityType whatToBuild) {
+    static public Position getTarget(final State state, final Entity building, EntityType whatToBuild) {
         List<Entity> possibleTargets;
         if (whatToBuild == EntityType.BUILDER_UNIT) {
             possibleTargets = state.allResources;

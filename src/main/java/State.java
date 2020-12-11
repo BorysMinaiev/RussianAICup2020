@@ -20,6 +20,7 @@ public class State {
     final Map<Integer, Map<EntityType, Integer>> entitiesByPlayer;
     final List<Entity> allResources;
     final int totalResources;
+    final MapHelper map;
     int debugPos = 30;
 
     private int countTotalPopulation() {
@@ -231,7 +232,7 @@ public class State {
         return resources;
     }
 
-    State(PlayerView playerView) {
+    State(final PlayerView playerView) {
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
         this.myEntities = computeMyEntities();
@@ -249,6 +250,7 @@ public class State {
         this.entitiesByPlayer = computeEntitiesByPlayer();
         this.allResources = computeAllResourcesList();
         this.totalResources = computeTotalResources();
+        this.map = new MapHelper(playerView);
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
     }
@@ -385,6 +387,10 @@ public class State {
         setAction(who, EntityAction.createAttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})));
     }
 
+    public void attack(final Entity who, final Entity what) {
+        setAction(who, EntityAction.createAttackAction(what.getId(), null));
+    }
+
     boolean insideMap(Position pos) {
         return pos.getX() >= 0 &&
                 pos.getY() >= 0 &&
@@ -411,6 +417,24 @@ public class State {
 
     public void move(Entity unit, Position where) {
         setAction(unit, EntityAction.createMoveAction(where, true, true));
+    }
+
+    public void randomlyMoveAndAttack(final Entity unit) {
+        MoveAction moveAction = null;
+        moveAction = new MoveAction(
+                new Position(playerView.getMapSize() - 1, playerView.getMapSize() - 1),
+                true,
+                true);
+        EntityType[] validAutoAttackTargets = new EntityType[0];
+        EntityProperties properties = getEntityProperties(unit);
+        setAction(unit, new EntityAction(
+                moveAction,
+                null,
+                new AttackAction(
+                        null, new AutoAttack(properties.getSightRange() * 5, validAutoAttackTargets)
+                ),
+                null
+        ));
     }
 
     public boolean isOccupiedByBuilding(Position position) {

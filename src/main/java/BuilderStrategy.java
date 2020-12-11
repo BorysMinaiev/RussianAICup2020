@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static model.EntityType.BUILDER_UNIT;
+
 public class BuilderStrategy {
     static Integer getTargetToRepair(final State state, final Entity builder) {
         // TODO: repair something not close to me?
@@ -103,7 +105,8 @@ public class BuilderStrategy {
         }
     }
 
-    static void makeMoveForAll(final State state, final List<Entity> allBuilders) {
+    static void makeMoveForAll(final State state) {
+        final List<Entity> allBuilders = state.myEntitiesByType.get(BUILDER_UNIT);
         List<Entity> canBuildOrMineResources = new ArrayList<>();
         for (Entity builder : allBuilders) {
             Integer repairId = getTargetToRepair(state, builder);

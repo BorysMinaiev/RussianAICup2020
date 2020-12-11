@@ -1,6 +1,6 @@
-import model.BuildProperties;
 import model.Entity;
 import model.EntityType;
+import model.Position;
 
 import java.util.*;
 
@@ -79,6 +79,7 @@ public class GlobalStrategy {
 
         static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
+        static ExpectedEntitiesDistribution V3 = new ExpectedEntitiesDistribution(40, 0, 9, 3);
     }
 
     final int MAX_BUILDERS = 50;
@@ -89,12 +90,10 @@ public class GlobalStrategy {
 
     static class RequiresProtection implements Comparable<RequiresProtection> {
         final Entity building;
-        final EntityType canProduce;
         final double dangerLevel;
 
-        public RequiresProtection(Entity building, EntityType canProduce, double dangerLevel) {
+        public RequiresProtection(Entity building, double dangerLevel) {
             this.building = building;
-            this.canProduce = canProduce;
             this.dangerLevel = dangerLevel;
         }
 
@@ -117,35 +116,58 @@ public class GlobalStrategy {
         return dangerLevel;
     }
 
-    private EntityType needToProtectSomething() {
+    static class ProtectSomething {
+        final EntityType whatToBuild;
+        final Position whereToGo;
 
+        public ProtectSomething(EntityType whatToBuild, Position whereToGo) {
+            this.whatToBuild = whatToBuild;
+            this.whereToGo = whereToGo;
+            if (whereToGo == null) {
+                throw new AssertionError("strange - where to go = null");
+            }
+        }
+    }
+
+    private boolean calculatedProtectSomething;
+    private ProtectSomething protectSomethingCache;
+
+    public ProtectSomething needToProtectSomething() {
+        if (!calculatedProtectSomething) {
+            calculatedProtectSomething = true;
+            protectSomethingCache = needToProtectSomethingWithoutCache();
+        }
+        return protectSomethingCache;
+    }
+
+    private ProtectSomething needToProtectSomethingWithoutCache() {
         List<RequiresProtection> requiresProtections = new ArrayList<>();
-        for (EntityType buildingTypeToProtect : new EntityType[]{RANGED_BASE, MELEE_BASE}) {
+        for (EntityType buildingTypeToProtect : new EntityType[]{RANGED_BASE, MELEE_BASE, BUILDER_BASE}) {
             List<Entity> buildings = state.myEntitiesByType.get(buildingTypeToProtect);
             if (buildings.size() != 1) {
                 continue;
             }
             Entity buildingToProtect = buildings.get(0);
             double dangerLevel = calcDangerLevel(buildingToProtect);
-            if (dangerLevel == 0) {
-                continue;
+            if (dangerLevel != 0) {
+                requiresProtections.add(new RequiresProtection(buildingToProtect, dangerLevel));
             }
-            BuildProperties properties = state.getEntityProperties(buildingToProtect).getBuild();
-            if (properties == null) {
-                throw new AssertionError("Can't build anything?");
-            }
-            EntityType[] whatCanBuild = properties.getOptions();
-            if (whatCanBuild.length < 1) {
-                throw new AssertionError("very strange?");
-            }
-            requiresProtections.add(new RequiresProtection(buildingToProtect, whatCanBuild[0], dangerLevel));
         }
         Collections.sort(requiresProtections);
         if (requiresProtections.isEmpty()) {
             return null;
         }
-        return requiresProtections.get(0).canProduce;
+        Entity building = requiresProtections.get(0).building;
+        Position target = PositionsPicker.getTarget(state, building, RANGED_UNIT);
+        if (!state.myEntitiesByType.get(RANGED_BASE).isEmpty()) {
+            return new ProtectSomething(RANGED_UNIT, target);
+        }
+        if (!state.myEntitiesByType.get(MELEE_BASE).isEmpty()) {
+            return new ProtectSomething(MELEE_UNIT, target);
+        }
+        return new ProtectSomething(null, target);
     }
+
 
     EntityType cachedWhatToBuild;
     boolean whatToBuildWasCached;
@@ -159,9 +181,9 @@ public class GlobalStrategy {
     }
 
     EntityType whatNextToBuildWithoutCache() {
-        EntityType toProtect = needToProtectSomething();
-        if (toProtect != null && hasEnoughHousesToBuildUnits()) {
-            return toProtect;
+        ProtectSomething toProtect = needToProtectSomething();
+        if (toProtect != null && toProtect.whatToBuild != null && hasEnoughHousesToBuildUnits()) {
+            return toProtect.whatToBuild;
         }
         if (needRangedHouse()) {
             return RANGED_BASE;
@@ -172,7 +194,7 @@ public class GlobalStrategy {
         if (needMoreBuilders()) {
             return BUILDER_UNIT;
         }
-        ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V2;
+        ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V3;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || state.totalResources < LOW_TOTAL_RESOURCES) {
             distribution = distribution.noMoreBuilders();
         }
