@@ -103,7 +103,10 @@ public class State {
             if (damage == 0) {
                 continue;
             }
-            int attackRange = 2 + attackProperties.getAttackRange();
+            int attackRange = attackProperties.getAttackRange();
+            if (!entity.getEntityType().isBuilding()) {
+                attackRange++;
+            }
             for (int dx = -attackRange; dx <= attackRange; dx++) {
                 for (int dy = -attackRange; dy <= attackRange; dy++) {
                     int dist = dist(dx, dy);

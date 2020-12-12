@@ -15,7 +15,9 @@ public class MapHelper {
 
     enum CAN_GO_THROUGH {
         EMPTY_CELL,
-        MY_BUILDING_OR_FOOD_OR_MY_BUILDER,
+        MY_BUILDING_OR_FOOD,
+        MY_BUILDER,
+        MY_WORKING_BUILDER,
         MY_ATTACKING_UNIT
     }
 
@@ -46,15 +48,21 @@ public class MapHelper {
         return true;
     }
 
-    private boolean canGoThrough(final Entity entity) {
+    private CAN_GO_THROUGH computeCanGoThrough(final Entity entity) {
         if (entity.getPlayerId() == null) {
             // TODO: potentially I can...
-            return false;
+            return CAN_GO_THROUGH.MY_BUILDING_OR_FOOD;
         }
         if (entity.getPlayerId() == myPlayerId) {
-            return !entity.getEntityType().isBuilding() && entity.getEntityType() != EntityType.BUILDER_UNIT;
+            if (entity.getEntityType().isBuilding()) {
+                return CAN_GO_THROUGH.MY_BUILDING_OR_FOOD;
+            }
+            if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
+                return CAN_GO_THROUGH.MY_BUILDER;
+            }
+            return CAN_GO_THROUGH.EMPTY_CELL;
         } else {
-            return true;
+            return CAN_GO_THROUGH.EMPTY_CELL;
         }
     }
 
@@ -101,9 +109,7 @@ public class MapHelper {
                     final int x = pos.getX() + dx;
                     final int y = pos.getY() + dy;
                     entitiesByPos[x][y] = entity;
-                    if (!canGoThrough(entity)) {
-                        canGoThrough[x][y] = CAN_GO_THROUGH.MY_BUILDING_OR_FOOD_OR_MY_BUILDER;
-                    }
+                    canGoThrough[x][y] = computeCanGoThrough(entity);
                 }
             }
             if (isEntityCouldBeAttacked(entity)) {
@@ -127,6 +133,14 @@ public class MapHelper {
 
     private boolean insideMap(final int x, final int y) {
         return x >= 0 && x < entitiesByPos.length && y >= 0 && y < entitiesByPos[x].length;
+    }
+
+    public boolean canMineThisCell(final int x, final int y) {
+        if (!insideMap(x, y)) {
+            return false;
+        }
+        Entity entity = entitiesByPos[x][y];
+        return (entity != null && entity.getEntityType() == EntityType.RESOURCE);
     }
 
     public List<Entity> getEntitiesToAttack(final Position pos, final int maxDist) {
@@ -297,7 +311,7 @@ public class MapHelper {
     }
 
     interface BfsHandler {
-        boolean canGoThrough(CAN_GO_THROUGH type);
+        boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack);
 
         boolean shouldEnd(int x, int y, int dist);
     }
@@ -311,10 +325,10 @@ public class MapHelper {
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
-                case MY_BUILDING_OR_FOOD_OR_MY_BUILDER -> false;
+                case MY_BUILDING_OR_FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -344,11 +358,11 @@ public class MapHelper {
 
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
             // TODO: think about it?
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
-                case MY_BUILDING_OR_FOOD_OR_MY_BUILDER -> false;
+                case MY_BUILDING_OR_FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -359,6 +373,27 @@ public class MapHelper {
                 foundEnemy = true;
             }
             return foundEnemy || dist > maxDist;
+        }
+    }
+
+    static class PathToResourcesBfsHandler implements BfsHandler {
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+            switch (underAttack) {
+                case SAFE:
+                    break;
+                case UNDER_ATTACK:
+                    return false;
+            }
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+            };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            return false;
         }
     }
 
@@ -415,7 +450,7 @@ public class MapHelper {
                     if (handler.shouldEnd(nx, ny, nextDist)) {
                         return;
                     }
-                    if (!handler.canGoThrough(canGoThrough[nx][ny])) {
+                    if (!handler.canGoThrough(canGoThrough[nx][ny], underAttack[nx][ny])) {
                         continue;
                     }
                     int nextCompressedCoord = compressCoord(nx, ny);
@@ -434,12 +469,12 @@ public class MapHelper {
     }
 
 
-    private Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final BfsQueue bfs) {
+    public Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final BfsQueue bfs) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
         for (Dir dir : dirs) {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
-            if (insideMap(nx, ny) && bfs.getDist(nx, ny) == totalDist - 1) {
+            if (insideMap(nx, ny) && bfs.getDist(nx, ny) < totalDist) {
                 if (canGoThrough[nx][ny] == CAN_GO_THROUGH.EMPTY_CELL) {
                     return new Position(nx, ny);
                 }
@@ -482,5 +517,16 @@ public class MapHelper {
         final EnemyFinderBfsHandler handler = new EnemyFinderBfsHandler(maxDist, this);
         bfs.run(initialPositions, handler);
         return handler.foundEnemy;
+    }
+
+    public BfsQueue findPathsToResources() {
+        final List<Entity> resources = state.allResources;
+        List<Position> initialPositions = new ArrayList<>();
+        for (Entity resource : resources) {
+            initialPositions.add(resource.getPosition());
+        }
+        PathToResourcesBfsHandler handler = new PathToResourcesBfsHandler();
+        bfs.run(initialPositions, handler);
+        return bfs;
     }
 }

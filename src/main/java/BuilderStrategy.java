@@ -1,4 +1,6 @@
-import model.*;
+import model.Entity;
+import model.EntityType;
+import model.Position;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,35 +15,14 @@ public class BuilderStrategy {
             if (entity.getHealth() == state.getEntityProperties(entity).getMaxHealth() && entity.isActive()) {
                 continue;
             }
+            if (entity.getEntityType() == BUILDER_UNIT) {
+                continue;
+            }
             if (state.isNearby(entity, builder)) {
                 return entity.getId();
             }
         }
         return null;
-    }
-
-    static void moveRandomly(final State state, final Entity unit) {
-        MoveAction moveAction = null;
-        BuildAction buildAction = null;
-        moveAction = new MoveAction(
-                new Position(state.playerView.getMapSize() - 1, state.playerView.getMapSize() - 1),
-                true,
-                true);
-        EntityType[] validAutoAttackTargets;
-        if (unit.getEntityType() == EntityType.BUILDER_UNIT) {
-            validAutoAttackTargets = new EntityType[]{EntityType.RESOURCE};
-        } else {
-            validAutoAttackTargets = new EntityType[0];
-        }
-        EntityProperties properties = state.playerView.getEntityProperties().get(unit.getEntityType());
-        state.actions.getEntityActions().put(unit.getId(), new EntityAction(
-                moveAction,
-                buildAction,
-                new AttackAction(
-                        null, new AutoAttack(properties.getSightRange() * 10, validAutoAttackTargets)
-                ),
-                null
-        ));
     }
 
     static boolean moveAwayFromAttack(final State state, final Entity builder) {
@@ -105,35 +86,74 @@ public class BuilderStrategy {
         }
     }
 
+    static void findSafePathToResources(final State state, final Entity builder, final MapHelper.BfsQueue bfsQueue) {
+        final Position pos = builder.getPosition();
+        final int currentDist = bfsQueue.getDist(pos.getX(), pos.getY());
+        final Position goTo = state.map.findFirstCellOnPath(pos, pos, currentDist, bfsQueue);
+        if (goTo != null) {
+            state.move(builder, goTo);
+        } else {
+            if (!moveAwayFromAttack(state, builder)) {
+                // I will die, but at least will do something!
+                if (!mineRightNow(state, builder)) {
+                    // TODO: do something?
+                }
+            }
+        }
+    }
+
+    static void markBuilderAsWorking(final State state, final Entity builder) {
+        final Position pos = builder.getPosition();
+        state.map.updateCellCanGoThrough(pos, MapHelper.CAN_GO_THROUGH.MY_WORKING_BUILDER);
+    }
+
+    static boolean mineRightNow(final State state, final Entity builder) {
+        final Position pos = builder.getPosition();
+        int[] dx = new int[]{-1, 0, 0, 1};
+        int[] dy = new int[]{0, -1, 1, 0};
+        for (int it = 0; it < dx.length; it++) {
+            int nx = pos.getX() + dx[it];
+            int ny = pos.getY() + dy[it];
+            if (state.map.canMineThisCell(nx, ny)) {
+                markBuilderAsWorking(state, builder);
+                state.attack(builder, state.map.entitiesByPos[nx][ny]);
+                return true;
+            }
+        }
+        return false;
+    }
+
     static void makeMoveForAll(final State state) {
         final List<Entity> allBuilders = state.myEntitiesByType.get(BUILDER_UNIT);
         List<Entity> canBuildOrMineResources = new ArrayList<>();
+        List<Entity> underAttack = new ArrayList<>();
         for (Entity builder : allBuilders) {
             Integer repairId = getTargetToRepair(state, builder);
             if (repairId != null) {
                 state.repairSomething(builder, repairId);
+                markBuilderAsWorking(state, builder);
                 continue;
             }
-            if (state.attackedByPos.get(builder.getPosition()) != null) {
-                // TODO: smarter things!
-                if (moveAwayFromAttack(state, builder)) {
-                    continue;
-                }
+            final Position pos = builder.getPosition();
+            if (state.map.underAttack[pos.getX()][pos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK) {
+                underAttack.add(builder);
+            } else {
+                canBuildOrMineResources.add(builder);
             }
-            canBuildOrMineResources.add(builder);
         }
-        if (canBuildOrMineResources.isEmpty()) {
-            return;
-        }
+
         EntityType toBuild = state.globalStrategy.whatNextToBuild();
         boolean needBuildSmth = toBuild != null && toBuild.isBuilding() && state.isEnoughResourcesToBuild(toBuild);
-        if (needBuildSmth) {
+        if (needBuildSmth && !canBuildOrMineResources.isEmpty()) {
             List<BuildOption> buildOptions = new ArrayList<>();
             for (Entity builder : canBuildOrMineResources) {
                 List<Position> possiblePositions = state.findPossiblePositionToBuild(builder, toBuild);
                 for (Position where : possiblePositions) {
                     if (where == null) {
                         throw new AssertionError();
+                    }
+                    if (willBeUnderAttack(state, toBuild, where)) {
+                        continue;
                     }
                     buildOptions.add(new BuildOption(state, builder, where, toBuild));
                 }
@@ -142,12 +162,40 @@ public class BuilderStrategy {
             if (!buildOptions.isEmpty()) {
                 BuildOption option = buildOptions.get(0);
                 state.buildSomething(option.builder, toBuild, option.where);
+                markBuilderAsWorking(state, option.builder);
                 canBuildOrMineResources.remove(option.builder);
             }
         }
-        for (Entity builder : canBuildOrMineResources) {
-            moveRandomly(state, builder);
+        List<Entity> shouldGoMine = new ArrayList<>();
+        shouldGoMine.addAll(canBuildOrMineResources);
+        shouldGoMine.addAll(underAttack);
+        List<Entity> needPathToResources = new ArrayList<>();
+        for (Entity builder : shouldGoMine) {
+            final Position pos = builder.getPosition();
+            if (state.map.underAttack[pos.getX()][pos.getY()] == MapHelper.UNDER_ATTACK.SAFE) {
+                if (mineRightNow(state, builder)) {
+                    continue;
+                }
+            }
+            needPathToResources.add(builder);
         }
+        MapHelper.BfsQueue bfsQueue = state.map.findPathsToResources();
+        for (Entity builder : needPathToResources) {
+            findSafePathToResources(state, builder, bfsQueue);
+        }
+    }
+
+    private static boolean willBeUnderAttack(State state, EntityType toBuild, Position where) {
+        final int size = state.getEntityTypeProperties(toBuild).getSize();
+        final MapHelper map = state.map;
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                if (map.underAttack[where.getX() + dx][where.getY() + dy] == MapHelper.UNDER_ATTACK.UNDER_ATTACK) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
 

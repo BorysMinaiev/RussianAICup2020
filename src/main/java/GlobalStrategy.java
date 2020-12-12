@@ -29,7 +29,8 @@ public class GlobalStrategy {
         final int used = state.populationUsed;
         boolean expectedNeed = expectedNeedHouse(used, state.populationExpected);
         boolean currentlyBuildingALot = state.populationExpected >= used + 15 ||
-                (used == 15 && state.populationExpected == 25);
+                (used == 15 && state.populationExpected >= 25) ||
+                (used <= 10 && state.populationExpected >= used + 5);
         return (reallyNeed && !currentlyBuildingALot) || expectedNeed;
     }
 
@@ -39,6 +40,10 @@ public class GlobalStrategy {
 
     private boolean needRangedHouse() {
         return state.myEntitiesCount.get(RANGED_BASE) == 0;
+    }
+
+    private boolean needBuilderBase() {
+        return state.myEntitiesCount.get(BUILDER_BASE) == 0;
     }
 
     static class ExpectedEntitiesDistribution {
@@ -192,6 +197,9 @@ public class GlobalStrategy {
         }
         if (needRangedHouse()) {
             return RANGED_BASE;
+        }
+        if (needBuilderBase()) {
+            return BUILDER_BASE;
         }
         if (needMoreHouses()) {
             return HOUSE;
