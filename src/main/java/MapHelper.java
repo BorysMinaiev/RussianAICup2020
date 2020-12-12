@@ -11,22 +11,33 @@ import java.util.List;
 public class MapHelper {
     final Entity[][] entitiesByPos;
     final int[][] enemiesPrefSum;
+    final State state;
 
     enum CAN_GO_THROUGH {
-        CAN_GO,
-        CANT_GO,
-        MAYBE_LATER
+        EMPTY_CELL,
+        MY_BUILDING_OR_FOOD_OR_MY_BUILDER,
+        MY_ATTACKING_UNIT
     }
 
     final CAN_GO_THROUGH[][] canGoThrough;
     final int myPlayerId;
-    final int[] queue;
-    final int[] visited;
-    final int[] dist;
-    int currentVisitedIter;
+    final BfsQueue bfs;
 
     private boolean isEntityCouldBeAttacked(final Entity entity) {
         return entity != null && entity.getPlayerId() != null && entity.getPlayerId() != myPlayerId;
+    }
+
+    private boolean isEnemyWarUnit(final Entity entity) {
+        if (!isEntityCouldBeAttacked(entity)) {
+            return false;
+        }
+        if (entity.getEntityType().isBuilding()) {
+            return false;
+        }
+        if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
+            return false;
+        }
+        return true;
     }
 
     private boolean canGoThrough(final Entity entity) {
@@ -41,13 +52,15 @@ public class MapHelper {
         }
     }
 
-    MapHelper(final PlayerView playerView) {
+    MapHelper(final State state) {
+        this.state = state;
+        final PlayerView playerView = state.playerView;
         this.myPlayerId = playerView.getMyId();
         final int size = playerView.getMapSize();
         entitiesByPos = new Entity[size][size];
         canGoThrough = new CAN_GO_THROUGH[size][size];
         for (CAN_GO_THROUGH[] pass : canGoThrough) {
-            Arrays.fill(pass, CAN_GO_THROUGH.CAN_GO);
+            Arrays.fill(pass, CAN_GO_THROUGH.EMPTY_CELL);
         }
         enemiesPrefSum = new int[size + 1][size + 1];
         for (Entity entity : playerView.getEntities()) {
@@ -59,7 +72,7 @@ public class MapHelper {
                     final int y = pos.getY() + dy;
                     entitiesByPos[x][y] = entity;
                     if (!canGoThrough(entity)) {
-                        canGoThrough[x][y] = CAN_GO_THROUGH.CANT_GO;
+                        canGoThrough[x][y] = CAN_GO_THROUGH.MY_BUILDING_OR_FOOD_OR_MY_BUILDER;
                     }
                 }
             }
@@ -75,10 +88,7 @@ public class MapHelper {
             }
         }
         final int totalCells = size * size;
-        this.queue = new int[totalCells];
-        this.visited = new int[totalCells];
-        this.dist = new int[totalCells];
-        this.currentVisitedIter = 0;
+        this.bfs = new BfsQueue(totalCells);
     }
 
     private boolean insideMap(final int x, final int y) {
@@ -252,22 +262,151 @@ public class MapHelper {
         }
     }
 
-    boolean visit(int compressedCoord) {
-        if (visited[compressedCoord] == currentVisitedIter) {
-            return false;
-        }
-        visited[compressedCoord] = currentVisitedIter;
-        return true;
+    interface BfsHandler {
+        boolean canGoThrough(CAN_GO_THROUGH type);
+
+        boolean shouldEnd(int x, int y, int dist);
     }
 
-    private Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist) {
+    static class PathToTargetBfsHandler implements BfsHandler {
+        final Position startPos;
+        int dist = -1;
+
+        PathToTargetBfsHandler(final Position startPos) {
+            this.startPos = startPos;
+        }
+
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type) {
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
+                case MY_BUILDING_OR_FOOD_OR_MY_BUILDER -> false;
+            };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            if (x == startPos.getX() && y == startPos.getY()) {
+                this.dist = dist;
+                return true;
+            }
+            return false;
+        }
+
+        public boolean foundPath() {
+            return dist != -1;
+        }
+    }
+
+    static class EnemyFinderBfsHandler implements BfsHandler {
+        final int maxDist;
+        boolean foundEnemy;
+        final MapHelper map;
+
+        public EnemyFinderBfsHandler(int maxDist, final MapHelper map) {
+            this.maxDist = maxDist;
+            this.map = map;
+        }
+
+
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type) {
+            // TODO: think about it?
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
+                case MY_BUILDING_OR_FOOD_OR_MY_BUILDER -> false;
+            };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            Entity whatThere = map.entitiesByPos[x][y];
+            if (map.isEnemyWarUnit(whatThere)) {
+                foundEnemy = true;
+            }
+            return foundEnemy || dist > maxDist;
+        }
+    }
+
+    class BfsQueue {
+        int qIt, qSz;
+        final int[] queue;
+        final int[] visited;
+        final int[] dist;
+        int currentVisitedIter;
+
+        BfsQueue(int totalCells) {
+            this.queue = new int[totalCells];
+            this.visited = new int[totalCells];
+            this.dist = new int[totalCells];
+            this.currentVisitedIter = 0;
+        }
+
+        void visit(int compressedCoord, int nowDist) {
+            if (visited[compressedCoord] == currentVisitedIter) {
+                return;
+            }
+            dist[compressedCoord] = nowDist;
+            visited[compressedCoord] = currentVisitedIter;
+            queue[qSz++] = compressedCoord;
+        }
+
+
+        void initState(final List<Position> initialPositions) {
+            qIt = 0;
+            qSz = 0;
+            currentVisitedIter++;
+
+            for (Position pos : initialPositions) {
+                int compressedPos = compressCoord(pos.getX(), pos.getY());
+                visit(compressedPos, 0);
+            }
+        }
+
+        void run(final List<Position> initialPositions, BfsHandler handler) {
+            initState(initialPositions);
+
+            while (qIt < qSz) {
+                int compressedCoord = queue[qIt++];
+                int x = extractXFromCompressedCoord(compressedCoord);
+                int y = extractYFromCompressedCoord(compressedCoord);
+                Dir[] dirs = dirsUp;
+                final int nextDist = dist[compressedCoord] + 1;
+                for (int it = 0; it < dirs.length; it++) {
+                    int nx = x + dirs[it].dx;
+                    int ny = y + dirs[it].dy;
+                    if (!insideMap(nx, ny)) {
+                        continue;
+                    }
+                    if (handler.shouldEnd(nx, ny, nextDist)) {
+                        return;
+                    }
+                    if (!handler.canGoThrough(canGoThrough[nx][ny])) {
+                        continue;
+                    }
+                    int nextCompressedCoord = compressCoord(nx, ny);
+                    visit(nextCompressedCoord, nextDist);
+                }
+            }
+        }
+
+        int getDist(int x, int y) {
+            int compressedCoord = compressCoord(x, y);
+            if (visited[compressedCoord] != currentVisitedIter) {
+                return Integer.MAX_VALUE;
+            }
+            return dist[compressedCoord];
+        }
+    }
+
+
+    private Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final BfsQueue bfs) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
         for (Dir dir : dirs) {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
-            final int compressedCoord = compressCoord(nx, ny);
-            if (insideMap(nx, ny) && visited[compressedCoord] == currentVisitedIter && dist[compressedCoord] == totalDist - 1) {
-                if (canGoThrough[nx][ny] == CAN_GO_THROUGH.CAN_GO) {
+            if (insideMap(nx, ny) && bfs.getDist(nx, ny) == totalDist - 1) {
+                if (canGoThrough[nx][ny] == CAN_GO_THROUGH.EMPTY_CELL) {
                     return new Position(nx, ny);
                 }
             }
@@ -275,8 +414,8 @@ public class MapHelper {
         return null;
     }
 
-    public void updateBlockedCell(final Position pos) {
-        canGoThrough[pos.getX()][pos.getY()] = CAN_GO_THROUGH.MAYBE_LATER;
+    public void updateCellCanGoThrough(final Position pos, final CAN_GO_THROUGH type) {
+        canGoThrough[pos.getX()][pos.getY()] = type;
     }
 
     /**
@@ -286,40 +425,28 @@ public class MapHelper {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
-        currentVisitedIter++;
-        int qSz = 0;
-        final int endCompressedCoord = compressCoord(targetPos.getX(), targetPos.getY());
-        queue[qSz++] = endCompressedCoord;
-        dist[endCompressedCoord] = 0;
-        int qIt = 0;
-        // TODO: restrictions on max qSz to make it faster
-        while (qIt < qSz) {
-            int compressedCoord = queue[qIt++];
-            int x = extractXFromCompressedCoord(compressedCoord);
-            int y = extractYFromCompressedCoord(compressedCoord);
-            // TODO: this doesn't make much sense now
-            Dir[] dirs = getDirs(startPos.getX() - x, startPos.getY() - y);
-            final int nextDist = dist[compressedCoord] + 1;
-            for (int it = 0; it < dirs.length; it++) {
-                int nx = x + dirs[it].dx;
-                int ny = y + dirs[it].dy;
-                if (!insideMap(nx, ny)) {
-                    continue;
-                }
-                if (nx == startPos.getX() && ny == startPos.getY()) {
-                    return findFirstCellOnPath(startPos, targetPos, nextDist);
-                }
-                if (canGoThrough[nx][ny] == CAN_GO_THROUGH.CANT_GO) {
-                    continue;
-                }
-                int nextCompressedCoord = compressCoord(nx, ny);
-                if (!visit(nextCompressedCoord)) {
-                    continue;
-                }
-                queue[qSz++] = nextCompressedCoord;
-                dist[nextCompressedCoord] = nextDist;
+        final List<Position> initialPositions = new ArrayList<>();
+        initialPositions.add(targetPos);
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos);
+        bfs.run(initialPositions, handler);
+        if (!handler.foundPath()) {
+            return null;
+        }
+        return findFirstCellOnPath(startPos, targetPos, handler.dist, bfs);
+    }
+
+
+    public boolean existEnemyWarUnitsNearby(Entity fromEntity, int maxDist) {
+        int entitySize = state.getEntityProperties(fromEntity).getSize();
+        final List<Position> initialPositions = new ArrayList<>();
+        final Position entityPos = fromEntity.getPosition();
+        for (int dx = 0; dx < entitySize; dx++) {
+            for (int dy = 0; dy < entitySize; dy++) {
+                initialPositions.add(entityPos.shift(dx, dy));
             }
         }
-        return null;
+        final EnemyFinderBfsHandler handler = new EnemyFinderBfsHandler(maxDist, this);
+        bfs.run(initialPositions, handler);
+        return handler.foundEnemy;
     }
 }

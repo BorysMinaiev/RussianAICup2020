@@ -250,7 +250,7 @@ public class State {
         this.entitiesByPlayer = computeEntitiesByPlayer();
         this.allResources = computeAllResourcesList();
         this.totalResources = computeTotalResources();
-        this.map = new MapHelper(playerView);
+        this.map = new MapHelper(this);
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
     }

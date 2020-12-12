@@ -20,7 +20,7 @@ public class RangedUnitStrategy {
     }
 
     void attack(final Entity who, final Entity what) {
-        state.map.updateBlockedCell(who.getPosition());
+        state.map.updateCellCanGoThrough(who.getPosition(), MapHelper.CAN_GO_THROUGH.MY_ATTACKING_UNIT);
         final int damage = state.getEntityProperties(who).getAttack().getDamage();
         expectedDamageByEntityId.put(what.getId(), expectedDamageByEntityId.getOrDefault(what.getId(), 0) + damage);
         state.attack(who, what);

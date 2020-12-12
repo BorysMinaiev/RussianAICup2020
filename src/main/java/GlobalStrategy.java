@@ -149,9 +149,14 @@ public class GlobalStrategy {
             }
             Entity buildingToProtect = buildings.get(0);
             double dangerLevel = calcDangerLevel(buildingToProtect);
-            if (dangerLevel != 0) {
-                requiresProtections.add(new RequiresProtection(buildingToProtect, dangerLevel));
+            if (dangerLevel == 0) {
+                continue;
             }
+            if (!state.map.existEnemyWarUnitsNearby(buildingToProtect, DIST_TO_CONSIDER_DANGER * 2)) {
+                // Can't go through trees
+                continue;
+            }
+            requiresProtections.add(new RequiresProtection(buildingToProtect, dangerLevel));
         }
         Collections.sort(requiresProtections);
         if (requiresProtections.isEmpty()) {
