@@ -132,18 +132,51 @@ public class Debug {
         state.debugPos++;
     }
 
+    private static void fillCell(List<Vec2Float> trianglePoints, int x, int y) {
+        trianglePoints.add(new Vec2Float(x, y));
+        trianglePoints.add(new Vec2Float(x + 1, y));
+        trianglePoints.add(new Vec2Float(x, y + 1));
 
-    public static void printSomeDebug(final DebugInterface debugInterface, final State state) {
+        trianglePoints.add(new Vec2Float(x + 1, y + 1));
+        trianglePoints.add(new Vec2Float(x + 1, y));
+        trianglePoints.add(new Vec2Float(x, y + 1));
+    }
+
+    private static void showUnderAttackMap(final State state, final DebugInterface debugInterface) {
+        final MapHelper map = state.map;
+        final int mapSize = map.underAttack.length;
+        List<Vec2Float> trianglePoints = new ArrayList<>();
+        for (int x = 0; x < mapSize; x++) {
+            for (int y = 0; y < mapSize; y++) {
+                if (map.underAttack[x][y] == MapHelper.UNDER_ATTACK.SAFE) {
+                    continue;
+                }
+                fillCell(trianglePoints, x, y);
+            }
+        }
+        ColoredVertex[] vertices = new ColoredVertex[trianglePoints.size()];
+        for (int i = 0; i < vertices.length; i++) {
+            vertices[i] = new ColoredVertex(trianglePoints.get(i), Color.TRANSPARENT_RED);
+        }
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.TRIANGLES)));
+    }
+
+
+    public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks) {
         if (debugInterface == null || state.playerView.getMyId() != 1) {
             return;
         }
         debugInterface.send(new DebugCommand.SetAutoFlush(false));
+        debugInterface.send(new DebugCommand.Clear());
 
         printAttackedBy(state, debugInterface);
         printEntitiesStat(state, debugInterface);
         printCurrentBuildTarget(state, debugInterface);
         printTotalResourcesLeft(state, debugInterface);
         printBuildActions(state, debugInterface);
+        if (isBetweenTicks) {
+            showUnderAttackMap(state, debugInterface);
+        }
 
         debugInterface.send(new DebugCommand.Flush());
     }

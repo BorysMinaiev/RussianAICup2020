@@ -24,4 +24,11 @@ public class CellsUtils {
         return distOneCoord(firstPos.getX(), firstPos.getX() + firstSize - 1, secondPos.getX(), secondPos.getX() + secondSize - 1) +
                 distOneCoord(firstPos.getY(), firstPos.getY() + firstSize - 1, secondPos.getY(), secondPos.getY() + secondSize - 1);
     }
+
+    public static int distBetweenEntityAndPos(final State state, final Entity first, int sx, int sy) {
+        final int firstSize = state.getEntityProperties(first).getSize();
+        final Position firstPos = first.getPosition();
+        return distOneCoord(firstPos.getX(), firstPos.getX() + firstSize - 1, sx, sx) +
+                distOneCoord(firstPos.getY(), firstPos.getY() + firstSize - 1, sy, sy);
+    }
 }

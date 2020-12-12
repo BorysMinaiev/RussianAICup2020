@@ -69,12 +69,15 @@ public class MyStrategy {
                 ));
             }
         }
-        state.printSomeDebug(debugInterface);
+        state.printSomeDebug(debugInterface, false);
         return state.actions;
     }
 
     public void debugUpdate(PlayerView playerView, DebugInterface debugInterface) {
-//        debugInterface.send(new DebugCommand.Clear());
-//        debugInterface.getState();
+        if (debugInterface == null || playerView.getMyId() != 1) {
+            return;
+        }
+        State state = new State(playerView);
+        state.printSomeDebug(debugInterface, true);
     }
 }

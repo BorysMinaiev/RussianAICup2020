@@ -270,8 +270,8 @@ public class State {
     }
 
 
-    public void printSomeDebug(DebugInterface debugInterface) {
-        Debug.printSomeDebug(debugInterface, this);
+    public void printSomeDebug(DebugInterface debugInterface, boolean isBetweenTicks) {
+        Debug.printSomeDebug(debugInterface, this, isBetweenTicks);
     }
 
     public boolean checkCanBuild(EntityType who, EntityType what) {

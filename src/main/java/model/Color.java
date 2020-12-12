@@ -53,12 +53,13 @@ public class Color {
         this.a = a;
     }
 
-    public static Color RED = new Color(255.0f, 0.0f, 0.0f, 255.0f);
-    public static Color BLUE = new Color(0.0f, 0.0f, 255.0f, 255.0f);
-    public static Color GREEN = new Color(0.0f, 255.0f, 0.0f, 255.0f);
-    public static Color ORANGE = new Color(255.0f, 165.0f, 0.0f, 255.0f);
-    public static Color WHITE = new Color(255.0f, 255.0f, 255.0f, 255.0f);
-    public static Color YELLOW = new Color(255.0f, 255.0f, 0.0f, 255.0f);
+    public static Color RED = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+    public static Color TRANSPARENT_RED = new Color(1.0f, 0.0f, 0.0f, 0.3f);
+    public static Color BLUE = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+    public static Color GREEN = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+    public static Color ORANGE = new Color(1.0f, 165.0f, 0.0f, 1.0f);
+    public static Color WHITE = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+    public static Color YELLOW = new Color(1.0f, 1.0f, 0.0f, 1.0f);
 
     public static Color readFrom(java.io.InputStream stream) throws java.io.IOException {
         Color result = new Color();

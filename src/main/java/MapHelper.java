@@ -19,7 +19,13 @@ public class MapHelper {
         MY_ATTACKING_UNIT
     }
 
+    enum UNDER_ATTACK {
+        SAFE,
+        UNDER_ATTACK,
+    }
+
     final CAN_GO_THROUGH[][] canGoThrough;
+    final UNDER_ATTACK[][] underAttack;
     final int myPlayerId;
     final BfsQueue bfs;
 
@@ -52,6 +58,26 @@ public class MapHelper {
         }
     }
 
+    private void markUnderAttack(final Entity entity) {
+        int damageRange = state.getEntityProperties(entity).getAttack().getAttackRange();
+        if (!entity.getEntityType().isBuilding()) {
+            damageRange++;
+        }
+        final Position bottomLeft = entity.getPosition();
+        final int entitySize = state.getEntityProperties(entity).getSize();
+        final Position topRight = bottomLeft.shift(entitySize - 1, entitySize - 1);
+        for (int x = bottomLeft.getX() - damageRange; x <= topRight.getX() + damageRange; x++) {
+            for (int y = bottomLeft.getY() - damageRange; y <= topRight.getY() + damageRange; y++) {
+                if (!insideMap(x, y)) {
+                    continue;
+                }
+                if (CellsUtils.distBetweenEntityAndPos(state, entity, x, y) <= damageRange) {
+                    underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK;
+                }
+            }
+        }
+    }
+
     MapHelper(final State state) {
         this.state = state;
         final PlayerView playerView = state.playerView;
@@ -59,8 +85,12 @@ public class MapHelper {
         final int size = playerView.getMapSize();
         entitiesByPos = new Entity[size][size];
         canGoThrough = new CAN_GO_THROUGH[size][size];
+        underAttack = new UNDER_ATTACK[size][size];
         for (CAN_GO_THROUGH[] pass : canGoThrough) {
             Arrays.fill(pass, CAN_GO_THROUGH.EMPTY_CELL);
+        }
+        for (int i = 0; i < size; i++) {
+            Arrays.fill(underAttack[i], UNDER_ATTACK.SAFE);
         }
         enemiesPrefSum = new int[size + 1][size + 1];
         for (Entity entity : playerView.getEntities()) {
@@ -78,6 +108,10 @@ public class MapHelper {
             }
             if (isEntityCouldBeAttacked(entity)) {
                 enemiesPrefSum[pos.getX() + 1][pos.getY() + 1]++;
+
+                if (isEnemyWarUnit(entity) || entity.getEntityType() == EntityType.TURRET) {
+                    markUnderAttack(entity);
+                }
             }
         }
         for (int x = 1; x <= size; x++) {
