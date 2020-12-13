@@ -468,6 +468,12 @@ public class MapHelper {
         }
     }
 
+    public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type) {
+        return switch (type) {
+            case EMPTY_CELL, MY_BUILDER -> true;
+            case MY_BUILDING_OR_FOOD, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+        };
+    }
 
     public Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final BfsQueue bfs) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
@@ -475,7 +481,7 @@ public class MapHelper {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
             if (insideMap(nx, ny) && bfs.getDist(nx, ny) < totalDist) {
-                if (canGoThrough[nx][ny] == CAN_GO_THROUGH.EMPTY_CELL) {
+                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny])) {
                     return new Position(nx, ny);
                 }
             }
