@@ -16,7 +16,7 @@ public class GlobalStrategy {
 
     private boolean expectedNeedHouse(int currentUsage, int currentExpected) {
         if (currentUsage < 10) {
-            return false;
+            return currentExpected < currentUsage + 3;
         }
         if (currentUsage < 20) {
             return currentExpected < currentUsage + 5;
@@ -62,6 +62,15 @@ public class GlobalStrategy {
             return new ExpectedEntitiesDistribution(0, count.get(TURRET), count.get(RANGED_UNIT), count.get(MELEE_UNIT));
         }
 
+        EntityType whatBuildingNeedToBuild(final EntityType unit) {
+            return switch (unit) {
+                case WALL, HOUSE, BUILDER_BASE, MELEE_BASE, RANGED_BASE, RESOURCE, TURRET -> null;
+                case BUILDER_UNIT -> BUILDER_BASE;
+                case MELEE_UNIT -> MELEE_BASE;
+                case RANGED_UNIT -> RANGED_BASE;
+            };
+        }
+
         EntityType chooseWhatToBuild(final State state) {
             // 0 -> not enough
             // 787788 -> too much
@@ -70,6 +79,10 @@ public class GlobalStrategy {
             for (Map.Entry<EntityType, Integer> entry : count.entrySet()) {
                 int currentCnt = state.myEntitiesCount.get(entry.getKey());
                 if (entry.getValue() == 0) {
+                    continue;
+                }
+                EntityType neededBuilding = whatBuildingNeedToBuild(entry.getKey());
+                if (state.myEntitiesCount.get(neededBuilding) == 0) {
                     continue;
                 }
                 double curCoef = currentCnt / (double) entry.getValue();
@@ -190,12 +203,14 @@ public class GlobalStrategy {
         return cachedWhatToBuild;
     }
 
+    final int FIRST_TICK_FOR_RANGED_BASE = 150;
+
     EntityType whatNextToBuildWithoutCache() {
         ProtectSomething toProtect = needToProtectSomething();
         if (toProtect != null && toProtect.whatToBuild != null && hasEnoughHousesToBuildUnits()) {
             return toProtect.whatToBuild;
         }
-        if (needRangedHouse()) {
+        if (needRangedHouse() && state.playerView.getCurrentTick() > FIRST_TICK_FOR_RANGED_BASE) {
             return RANGED_BASE;
         }
         if (needBuilderBase()) {
