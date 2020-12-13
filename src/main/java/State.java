@@ -455,4 +455,8 @@ public class State {
     public boolean isOccupiedByBuilding(Position position) {
         return occupiedByBuildingsPositions.contains(position);
     }
+
+    public boolean alreadyHasAction(Entity unit) {
+        return actions.getEntityActions().get(unit.getId()) != EntityAction.emptyAction;
+    }
 }

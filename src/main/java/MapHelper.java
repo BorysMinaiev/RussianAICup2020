@@ -3,10 +3,7 @@ import model.EntityType;
 import model.PlayerView;
 import model.Position;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class MapHelper {
     final Entity[][] entitiesByPos;
@@ -397,6 +394,52 @@ public class MapHelper {
         }
     }
 
+    static class PathToBuildersBfsHandler implements BfsHandler {
+        final int maxDist;
+        final List<Entity> builders;
+        final int needBuilders;
+        final State state;
+
+
+        public PathToBuildersBfsHandler(int maxDist, int needBuilders, State state) {
+            this.maxDist = maxDist;
+            this.builders = new ArrayList<>();
+            this.needBuilders = needBuilders;
+            this.state = state;
+        }
+
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+            switch (underAttack) {
+                case SAFE:
+                    break;
+                case UNDER_ATTACK:
+                    return false;
+            }
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+            };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            if (dist > maxDist) {
+                return true;
+            }
+            final MapHelper map = state.map;
+            if (map.canGoThrough[x][y] != CAN_GO_THROUGH.MY_BUILDER) {
+                return false;
+            }
+            Entity entity = map.entitiesByPos[x][y];
+            if (entity.getEntityType() != EntityType.BUILDER_UNIT) {
+                throw new AssertionError("Expected builder, found something else");
+            }
+            builders.add(entity);
+            return builders.size() >= needBuilders;
+        }
+    }
+
     class BfsQueue {
         int qIt, qSz;
         final int[] queue;
@@ -525,6 +568,11 @@ public class MapHelper {
         return handler.foundEnemy;
     }
 
+    private BfsQueue findPathsToCells(final List<Position> initialPositions, final BfsHandler handler) {
+        bfs.run(initialPositions, handler);
+        return bfs;
+    }
+
     public BfsQueue findPathsToResources() {
         final List<Entity> resources = state.allResources;
         List<Position> initialPositions = new ArrayList<>();
@@ -532,7 +580,30 @@ public class MapHelper {
             initialPositions.add(resource.getPosition());
         }
         PathToResourcesBfsHandler handler = new PathToResourcesBfsHandler();
-        bfs.run(initialPositions, handler);
-        return bfs;
+        return findPathsToCells(initialPositions, handler);
+    }
+
+    class PathsFromBuilders {
+        final Map<Entity, Position> firstCellsInPath;
+
+        public PathsFromBuilders(final PathToBuildersBfsHandler handler, BfsQueue queue) {
+            this.firstCellsInPath = new HashMap<>();
+            for (Entity builder : handler.builders) {
+                // TODO: fix target cell
+                final Position pos = builder.getPosition();
+                final int dist = queue.getDist(pos.getX(), pos.getY());
+                final Position firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue);
+                if (firstCell == null) {
+                    continue;
+                }
+                firstCellsInPath.put(builder, firstCell);
+            }
+        }
+    }
+
+    public PathsFromBuilders findPathsToBuilding(final List<Position> initialPositions, final int maxDist, final int needBuilders) {
+        PathToBuildersBfsHandler handler = new PathToBuildersBfsHandler(maxDist, needBuilders, state);
+        final BfsQueue queue = findPathsToCells(initialPositions, handler);
+        return new PathsFromBuilders(handler, queue);
     }
 }

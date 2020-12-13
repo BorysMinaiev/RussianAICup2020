@@ -2,14 +2,14 @@ import model.Entity;
 import model.EntityType;
 import model.Position;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-import static model.EntityType.BUILDER_UNIT;
+import static model.EntityType.*;
 
 public class BuilderStrategy {
-    static Integer getTargetToRepair(final State state, final Entity builder) {
+    private static final int MAX_DIST_TO_SEARCH_BUILDERS_FOR_REPAIR = 5;
+
+    static Entity getTargetToRepair(final State state, final Entity builder) {
         // TODO: repair something not close to me?
         for (Entity entity : state.myEntities) {
             if (entity.getHealth() == state.getEntityProperties(entity).getMaxHealth() && entity.isActive()) {
@@ -19,7 +19,7 @@ public class BuilderStrategy {
                 continue;
             }
             if (state.isNearby(entity, builder)) {
-                return entity.getId();
+                return entity;
             }
         }
         return null;
@@ -124,15 +124,70 @@ public class BuilderStrategy {
         return false;
     }
 
+    static int getNumWorkersToHelpRepair(final EntityType type) {
+        if (type == RANGED_BASE || type == BUILDER_BASE) {
+            return 8;
+        }
+        if (type == HOUSE) {
+            return 2;
+        }
+        return 1;
+    }
+
+    static void handleAllRepairings(final State state) {
+        final List<Entity> allBuilders = state.myEntitiesByType.get(BUILDER_UNIT);
+        final Map<Entity, Integer> alreadyRepairing = new HashMap<>();
+        for (Entity builder : allBuilders) {
+            Entity toRepair = getTargetToRepair(state, builder);
+            if (toRepair != null) {
+                state.repairSomething(builder, toRepair.getId());
+                markBuilderAsWorking(state, builder);
+                alreadyRepairing.put(toRepair, alreadyRepairing.getOrDefault(toRepair, 0) + 1);
+            }
+        }
+        for (Entity entity : state.myEntities) {
+            if (!entity.getEntityType().isBuilding()) {
+                continue;
+            }
+            if (entity.isActive() && entity.getHealth() == state.getEntityProperties(entity).getMaxHealth()) {
+                continue;
+            }
+            final int alreadyWorkers = alreadyRepairing.getOrDefault(entity, 0);
+            final int needMoreWorkers = getNumWorkersToHelpRepair(entity.getEntityType()) - alreadyWorkers;
+            if (needMoreWorkers <= 0) {
+                continue;
+            }
+            final List<Position> initialPositions = allPositionsOfEntity(state, entity);
+            MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
+                    MAX_DIST_TO_SEARCH_BUILDERS_FOR_REPAIR, needMoreWorkers);
+            for (Map.Entry<Entity, Position> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
+                final Entity builder = entry.getKey();
+                final Position nextPos = entry.getValue();
+                state.move(builder, nextPos);
+                state.debugTargets.put(builder.getPosition(), entity.getPosition());
+                // TODO: something else?
+            }
+        }
+    }
+
+    private static List<Position> allPositionsOfEntity(final State state, final Entity entity) {
+        final int size = state.getEntityProperties(entity).getSize();
+        List<Position> positions = new ArrayList<>();
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                positions.add(entity.getPosition().shift(dx, dy));
+            }
+        }
+        return positions;
+    }
+
     static void makeMoveForAll(final State state) {
+        handleAllRepairings(state);
         final List<Entity> allBuilders = state.myEntitiesByType.get(BUILDER_UNIT);
         List<Entity> canBuildOrMineResources = new ArrayList<>();
         List<Entity> underAttack = new ArrayList<>();
         for (Entity builder : allBuilders) {
-            Integer repairId = getTargetToRepair(state, builder);
-            if (repairId != null) {
-                state.repairSomething(builder, repairId);
-                markBuilderAsWorking(state, builder);
+            if (state.alreadyHasAction(builder)) {
                 continue;
             }
             final Position pos = builder.getPosition();
