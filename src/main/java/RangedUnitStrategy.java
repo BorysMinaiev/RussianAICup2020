@@ -29,6 +29,7 @@ public class RangedUnitStrategy {
     private boolean goToPosition(final Entity unit, final Position goToPos) {
         Position firstCellInPath = state.map.findBestPathToTarget(unit.getPosition(), goToPos);
         if (firstCellInPath != null) {
+            state.addDebugTarget(unit.getPosition(), goToPos);
             state.move(unit, firstCellInPath);
             return true;
         }

@@ -142,6 +142,14 @@ public class Debug {
         trianglePoints.add(new Vec2Float(x, y + 1));
     }
 
+    private static ColoredVertex[] convertVerticesToList(final List<Vec2Float> points, final Color color) {
+        ColoredVertex[] vertices = new ColoredVertex[points.size()];
+        for (int i = 0; i < vertices.length; i++) {
+            vertices[i] = new ColoredVertex(points.get(i), color);
+        }
+        return vertices;
+    }
+
     private static void showUnderAttackMap(final State state, final DebugInterface debugInterface) {
         final MapHelper map = state.map;
         final int mapSize = map.underAttack.length;
@@ -154,13 +162,20 @@ public class Debug {
                 fillCell(trianglePoints, x, y);
             }
         }
-        ColoredVertex[] vertices = new ColoredVertex[trianglePoints.size()];
-        for (int i = 0; i < vertices.length; i++) {
-            vertices[i] = new ColoredVertex(trianglePoints.get(i), Color.TRANSPARENT_RED);
-        }
+        ColoredVertex[] vertices = convertVerticesToList(trianglePoints, Color.TRANSPARENT_RED);
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.TRIANGLES)));
     }
 
+    private static void showTargets(final State state, final DebugInterface debugInterface) {
+        final List<Vec2Float> linePoints = new ArrayList<>();
+        for (Map.Entry<Position, Position> entry : state.debugTargets.entrySet()) {
+            Position from = entry.getKey(), to = entry.getValue();
+            linePoints.add(new Vec2Float(from.getX() + 0.5f, from.getY() + 0.5f));
+            linePoints.add(new Vec2Float(to.getX() + 0.5f, to.getY() + 0.5f));
+        }
+        ColoredVertex[] vertices = convertVerticesToList(linePoints, Color.TRANSPARENT_BLUE);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+    }
 
     public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks) {
         if (debugInterface == null || state.playerView.getMyId() != 1) {
@@ -174,6 +189,7 @@ public class Debug {
         printCurrentBuildTarget(state, debugInterface);
         printTotalResourcesLeft(state, debugInterface);
         printBuildActions(state, debugInterface);
+        showTargets(state, debugInterface);
         if (isBetweenTicks) {
             showUnderAttackMap(state, debugInterface);
         }
