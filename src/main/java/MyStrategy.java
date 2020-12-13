@@ -74,7 +74,7 @@ public class MyStrategy {
     }
 
     public void debugUpdate(PlayerView playerView, DebugInterface debugInterface) {
-        if (debugInterface == null || playerView.getMyId() != 1) {
+        if (debugInterface == null) {
             return;
         }
         State state = new State(playerView);
