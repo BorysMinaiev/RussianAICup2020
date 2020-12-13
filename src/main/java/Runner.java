@@ -16,9 +16,12 @@ public class Runner {
         outputStream.flush();
     }
 
-    void run() throws IOException {
+    void run(boolean withDebug) throws IOException {
         MyStrategy myStrategy = new MyStrategy();
         DebugInterface debugInterface = new DebugInterface(inputStream, outputStream);
+        if (!withDebug) {
+            debugInterface = null;
+        }
         while (true) {
             model.ServerMessage message = model.ServerMessage.readFrom(inputStream);
             if (message instanceof model.ServerMessage.GetAction) {
@@ -42,6 +45,7 @@ public class Runner {
         String host = args.length < 1 ? "127.0.0.1" : args[0];
         int port = args.length < 2 ? 31001 : Integer.parseInt(args[1]);
         String token = args.length < 3 ? "0000000000000000" : args[2];
-        new Runner(host, port, token).run();
+        boolean withDebug = args.length >= 4 && (args[3].equals("with-debug"));
+        new Runner(host, port, token).run(withDebug);
     }
 }

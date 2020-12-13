@@ -54,6 +54,15 @@ public class ColoredVertex {
         this.color = color;
     }
 
+    public static ColoredVertex fromScreen(Vec2Float screenOffset, model.Color color, final int playerId) {
+        final int MAP_SIZE = 80;
+        final int CELL_SIZE = 24;
+        final int shiftX = (playerId == 1 ? 0 : -1) * MAP_SIZE * CELL_SIZE;
+        final int shiftY = 0;
+        screenOffset = new Vec2Float(screenOffset.getX() * CELL_SIZE + shiftX, screenOffset.getY() * CELL_SIZE + shiftY);
+        return new ColoredVertex(new Vec2Float(0, 0), screenOffset, color);
+    }
+
     public static ColoredVertex readFrom(java.io.InputStream stream) throws java.io.IOException {
         ColoredVertex result = new ColoredVertex();
         if (StreamUtil.readBoolean(stream)) {

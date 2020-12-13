@@ -50,10 +50,11 @@ public class Debug {
         }
     }
 
-    static void printTextBlock(final DebugInterface debugInterface, final List<TextLine> lines, final Vec2Float offset) {
+    static void printTextBlock(final DebugInterface debugInterface, final List<TextLine> lines, final Vec2Float offset, final State state) {
+        final int playerId = state.playerView.getMyId();
         for (int i = 0; i < lines.size(); i++) {
             final String text = lines.get(i).text;
-            ColoredVertex location = new ColoredVertex(new Vec2Float(0.0f, -1.2f * i).shift(offset.getX(), offset.getY()), lines.get(i).color);
+            ColoredVertex location = ColoredVertex.fromScreen(new Vec2Float(0.0f, -1.2f * i).shift(offset.getX(), offset.getY()), lines.get(i).color, playerId);
             debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, text, 0.0f, 22.0f)));
         }
     }
@@ -89,7 +90,7 @@ public class Debug {
                 lines.add(new TextLine(colorByPlayer.get(playerId), text));
             }
             Vec2Float offset = offsetsByPlayer.get(playerId);
-            printTextBlock(debugInterface, lines, offset);
+            printTextBlock(debugInterface, lines, offset, state);
         }
     }
 
@@ -178,7 +179,7 @@ public class Debug {
     }
 
     public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks) {
-        if (debugInterface == null || state.playerView.getMyId() != 1) {
+        if (debugInterface == null) {
             return;
         }
         debugInterface.send(new DebugCommand.SetAutoFlush(false));
