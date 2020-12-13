@@ -413,6 +413,13 @@ public class State {
                 pos.getY() < playerView.getMapSize();
     }
 
+    static boolean canGoThere(MapHelper.CAN_GO_THROUGH type) {
+        return switch (type) {
+            case EMPTY_CELL, MY_BUILDER -> true;
+            case MY_BUILDING_OR_FOOD, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+        };
+    }
+
     public List<Position> getAllPossibleUnitMoves(Entity unit) {
         List<Position> canGo = new ArrayList<>();
         int[] dx = new int[]{-1, 0, 0, 1};
@@ -422,7 +429,7 @@ public class State {
             if (!insideMap(checkPos)) {
                 continue;
             }
-            if (occupiedPositions.contains(checkPos)) {
+            if (!canGoThere(map.canGoThrough[checkPos.getX()][checkPos.getY()])) {
                 continue;
             }
             canGo.add(checkPos);
