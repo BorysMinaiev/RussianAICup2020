@@ -95,6 +95,7 @@ public class BuilderStrategy {
         } else {
             if (!moveAwayFromAttack(state, builder)) {
                 // I will die, but at least will do something!
+                state.addDebugUnitInBadPosition(builder.getPosition());
                 if (!mineRightNow(state, builder)) {
                     // TODO: do something?
                 }

@@ -178,6 +178,24 @@ public class Debug {
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
     }
 
+    private static void showBadUnits(final State state, final DebugInterface debugInterface) {
+        List<Vec2Float> points = new ArrayList<>();
+        for (Position pos : state.debugUnitsInBadPostion) {
+            final int x = pos.getX();
+            final int y = pos.getY();
+            points.add(new Vec2Float(x, y));
+            points.add(new Vec2Float(x, y + 1));
+            points.add(new Vec2Float(x, y + 1));
+            points.add(new Vec2Float(x + 1, y + 1));
+            points.add(new Vec2Float(x + 1, y + 1));
+            points.add(new Vec2Float(x + 1, y));
+            points.add(new Vec2Float(x + 1, y));
+            points.add(new Vec2Float(x, y));
+        }
+        ColoredVertex[] vertices = convertVerticesToList(points, Color.RED);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+    }
+
     public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks) {
         if (debugInterface == null) {
             return;
@@ -191,6 +209,7 @@ public class Debug {
         printTotalResourcesLeft(state, debugInterface);
         printBuildActions(state, debugInterface);
         showTargets(state, debugInterface);
+        showBadUnits(state, debugInterface);
         if (isBetweenTicks) {
             showUnderAttackMap(state, debugInterface);
         }

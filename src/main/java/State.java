@@ -19,6 +19,7 @@ public class State {
     final Map<EntityType, Integer> myEntitiesCount;
     final Map<Integer, Map<EntityType, Integer>> entitiesByPlayer;
     final Map<Position, Position> debugTargets;
+    final Set<Position> debugUnitsInBadPostion;
     final List<Entity> allResources;
     final int totalResources;
     final MapHelper map;
@@ -255,6 +256,7 @@ public class State {
         this.allResources = computeAllResourcesList();
         this.totalResources = computeTotalResources();
         this.debugTargets = new HashMap<>();
+        this.debugUnitsInBadPostion = new HashSet<>();
         this.map = new MapHelper(this);
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
@@ -262,6 +264,10 @@ public class State {
 
     public void addDebugTarget(final Position from, final Position to) {
         debugTargets.put(from, to);
+    }
+
+    public void addDebugUnitInBadPosition(final Position pos) {
+        debugUnitsInBadPostion.add(pos);
     }
 
     private int computeTotalResources() {
