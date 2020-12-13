@@ -71,6 +71,17 @@ public class GlobalStrategy {
             };
         }
 
+        private boolean hasBuildingToBuild(final State state, final EntityType unit) {
+            EntityType neededBuilding = whatBuildingNeedToBuild(unit);
+            List<Entity> whereToBuild = state.myEntitiesByType.get(neededBuilding);
+            for (Entity building : whereToBuild) {
+                if (building.isActive()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         EntityType chooseWhatToBuild(final State state) {
             // 0 -> not enough
             // 787788 -> too much
@@ -81,8 +92,7 @@ public class GlobalStrategy {
                 if (entry.getValue() == 0) {
                     continue;
                 }
-                EntityType neededBuilding = whatBuildingNeedToBuild(entry.getKey());
-                if (state.myEntitiesCount.get(neededBuilding) == 0) {
+                if (!hasBuildingToBuild(state, entry.getKey())) {
                     continue;
                 }
                 double curCoef = currentCnt / (double) entry.getValue();
@@ -205,6 +215,15 @@ public class GlobalStrategy {
 
     final int FIRST_TICK_FOR_RANGED_BASE = 150;
 
+    private boolean lowResourcesInTotal() {
+        if (state.playerView.isFogOfWar()) {
+            // TODO: smarter things
+            return state.playerView.getCurrentTick() > 750;
+        } else {
+            return state.totalResources < LOW_TOTAL_RESOURCES;
+        }
+    }
+
     EntityType whatNextToBuildWithoutCache() {
         ProtectSomething toProtect = needToProtectSomething();
         if (toProtect != null && toProtect.whatToBuild != null && hasEnoughHousesToBuildUnits()) {
@@ -223,7 +242,7 @@ public class GlobalStrategy {
             return BUILDER_UNIT;
         }
         ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V3;
-        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || state.totalResources < LOW_TOTAL_RESOURCES) {
+        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
         }
         return distribution.chooseWhatToBuild(state);
