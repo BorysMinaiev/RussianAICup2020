@@ -64,6 +64,7 @@ public class PositionsPicker {
         return -dist;
     }
 
+    // TODO: smarter bfs - if we want to mine resources, don't try to use the same cell
     static Position pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
         List<Position> unitPositions = state.findPossiblePositionToBuild(who, what);
         if (unitPositions.isEmpty()) {
