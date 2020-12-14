@@ -18,6 +18,6 @@ public enum EntityType {
     }
 
     public boolean isBuilding() {
-        return this == HOUSE || this == BUILDER_BASE || this == MELEE_BASE || this == RANGED_BASE || this == TURRET;
+        return this == HOUSE || this == BUILDER_BASE || this == MELEE_BASE || this == RANGED_BASE || this == TURRET || this == WALL;
     }
 }
