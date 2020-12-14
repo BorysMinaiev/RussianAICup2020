@@ -92,6 +92,10 @@ public class BuilderStrategy {
         final Position goTo = state.map.findFirstCellOnPath(pos, pos, currentDist, bfsQueue);
         if (goTo != null) {
             state.move(builder, goTo);
+            if (state.debugInterface != null) {
+                final Position targetCell = state.map.findLastCellOnPath(pos, currentDist, bfsQueue);
+                state.debugTargets.put(builder.getPosition(), targetCell);
+            }
         } else {
             if (!moveAwayFromAttack(state, builder)) {
                 // I will die, but at least will do something!

@@ -23,6 +23,7 @@ public class State {
     final List<Entity> allResources;
     final int totalResources;
     final MapHelper map;
+    final DebugInterface debugInterface;
     int debugPos = 30;
 
     private int countTotalPopulation() {
@@ -237,7 +238,8 @@ public class State {
         return resources;
     }
 
-    State(final PlayerView playerView) {
+    State(final PlayerView playerView, final DebugInterface debugInterface) {
+        this.debugInterface = debugInterface;
         this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
         this.myEntities = computeMyEntities();

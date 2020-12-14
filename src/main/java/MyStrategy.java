@@ -27,7 +27,7 @@ public class MyStrategy {
     }
 
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
-        State state = new State(playerView);
+        State state = new State(playerView, debugInterface);
         int myId = playerView.getMyId();
         BuilderStrategy.makeMoveForAll(state);
         new RangedUnitStrategy(state).makeMoveForAll();
@@ -77,7 +77,7 @@ public class MyStrategy {
         if (debugInterface == null) {
             return;
         }
-        State state = new State(playerView);
+        State state = new State(playerView, debugInterface);
         state.printSomeDebug(debugInterface, true);
     }
 }

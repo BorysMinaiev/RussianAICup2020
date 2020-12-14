@@ -532,6 +532,28 @@ public class MapHelper {
         return null;
     }
 
+    public Position findLastCellOnPath(final Position startPos, final int totalDist, final BfsQueue bfs) {
+        Dir[] dirs = getDirs(0, 0);
+        Position curPos = startPos;
+        int curDist = totalDist;
+        while (true) {
+            boolean found = false;
+            for (Dir dir : dirs) {
+                final int nx = curPos.getX() + dir.dx;
+                final int ny = curPos.getY() + dir.dy;
+                if (insideMap(nx, ny) && bfs.getDist(nx, ny) < curDist) {
+                    found = true;
+                    curDist = bfs.getDist(nx, ny);
+                    curPos = new Position(nx, ny);
+                    break;
+                }
+            }
+            if (!found) {
+                return curPos;
+            }
+        }
+    }
+
     public void updateCellCanGoThrough(final Position pos, final CAN_GO_THROUGH type) {
         canGoThrough[pos.getX()][pos.getY()] = type;
     }
