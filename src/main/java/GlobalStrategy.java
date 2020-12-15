@@ -64,7 +64,7 @@ public class GlobalStrategy {
 
         EntityType whatBuildingNeedToBuild(final EntityType unit) {
             return switch (unit) {
-                case WALL, HOUSE, BUILDER_BASE, MELEE_BASE, RANGED_BASE, RESOURCE, TURRET -> null;
+                case WALL, HOUSE, BUILDER_BASE, MELEE_BASE, RANGED_BASE, RESOURCE, TURRET -> BUILDER_UNIT;
                 case BUILDER_UNIT -> BUILDER_BASE;
                 case MELEE_UNIT -> MELEE_BASE;
                 case RANGED_UNIT -> RANGED_BASE;

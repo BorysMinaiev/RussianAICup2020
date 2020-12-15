@@ -21,6 +21,7 @@ public class MapHelper {
     enum UNDER_ATTACK {
         SAFE,
         UNDER_ATTACK,
+        UNDER_ATTACK_DO_NOT_GO_THERE,
     }
 
     final CAN_GO_THROUGH[][] canGoThrough;
@@ -28,12 +29,19 @@ public class MapHelper {
     final int myPlayerId;
     final BfsQueue bfs;
 
-    private boolean isEntityCouldBeAttacked(final Entity entity) {
-        return entity != null && entity.getPlayerId() != null && entity.getPlayerId() != myPlayerId;
+    private boolean isEntityCouldBeAttacked(final Entity entity, boolean okToAttackTurrets) {
+        boolean canAttack = entity != null && entity.getPlayerId() != null && entity.getPlayerId() != myPlayerId;
+        if (!canAttack) {
+            return false;
+        }
+        if (entity.getEntityType() == EntityType.TURRET && entity.isActive()) {
+            return okToAttackTurrets;
+        }
+        return true;
     }
 
     private boolean isEnemyWarUnit(final Entity entity) {
-        if (!isEntityCouldBeAttacked(entity)) {
+        if (!isEntityCouldBeAttacked(entity, true)) {
             return false;
         }
         if (entity.getEntityType().isBuilding()) {
@@ -63,7 +71,20 @@ public class MapHelper {
         }
     }
 
-    private void markUnderAttack(final Entity entity) {
+    private void updateUnderAttack(int x, int y, UNDER_ATTACK type) {
+        if (type == UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+            underAttack[x][y] = type;
+            return;
+        }
+        if (underAttack[x][y] == UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+            return;
+        }
+        if (type == UNDER_ATTACK.UNDER_ATTACK) {
+            underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK;
+        }
+    }
+
+    private void markUnderAttack(final Entity entity, boolean notGoThere) {
         int damageRange = state.getEntityProperties(entity).getAttack().getAttackRange();
         if (!entity.getEntityType().isBuilding()) {
             damageRange++;
@@ -77,7 +98,11 @@ public class MapHelper {
                     continue;
                 }
                 if (CellsUtils.distBetweenEntityAndPos(state, entity, x, y) <= damageRange) {
-                    underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK;
+                    if (notGoThere) {
+                        updateUnderAttack(x, y, UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE);
+                    } else {
+                        updateUnderAttack(x, y, UNDER_ATTACK.UNDER_ATTACK);
+                    }
                 }
             }
         }
@@ -109,11 +134,14 @@ public class MapHelper {
                     canGoThrough[x][y] = computeCanGoThrough(entity);
                 }
             }
-            if (isEntityCouldBeAttacked(entity)) {
-                enemiesPrefSum[pos.getX() + 1][pos.getY() + 1]++;
+            if (isEntityCouldBeAttacked(entity, true)) {
+                if (entity.getEntityType() != EntityType.TURRET || !entity.isActive()) {
+                    enemiesPrefSum[pos.getX() + 1][pos.getY() + 1]++;
+                }
 
                 if (isEnemyWarUnit(entity) || entity.getEntityType() == EntityType.TURRET) {
-                    markUnderAttack(entity);
+                    boolean notGoThere = entity.getEntityType() == EntityType.TURRET && entity.isActive();
+                    markUnderAttack(entity, notGoThere);
                 }
             }
         }
@@ -152,7 +180,7 @@ public class MapHelper {
                     continue;
                 }
                 Entity entity = entitiesByPos[x][y];
-                if (!isEntityCouldBeAttacked(entity)) {
+                if (!isEntityCouldBeAttacked(entity, true)) {
                     continue;
                 }
                 toAttack.add(entity);
@@ -196,14 +224,14 @@ public class MapHelper {
         List<Entity> enemies = new ArrayList<>();
         for (int y = frY; y <= toY; y++) {
             for (int x : new int[]{frX, toX}) {
-                if (insideMap(x, y) && isEntityCouldBeAttacked(entitiesByPos[x][y])) {
+                if (insideMap(x, y) && isEntityCouldBeAttacked(entitiesByPos[x][y], false)) {
                     enemies.add(entitiesByPos[x][y]);
                 }
             }
         }
         for (int x = frX + 1; x < toX; x++) {
             for (int y : new int[]{frY, toY}) {
-                if (insideMap(x, y) && isEntityCouldBeAttacked(entitiesByPos[x][y])) {
+                if (insideMap(x, y) && isEntityCouldBeAttacked(entitiesByPos[x][y], false)) {
                     enemies.add(entitiesByPos[x][y]);
                 }
             }
@@ -235,7 +263,7 @@ public class MapHelper {
             for (int xx = frX; xx <= toX; xx++) {
                 for (int yy = frY; yy <= toY; yy++) {
                     if (insideMap(xx, yy)) {
-                        if (isEntityCouldBeAttacked(entitiesByPos[xx][yy])) {
+                        if (isEntityCouldBeAttacked(entitiesByPos[xx][yy], false)) {
                             throw new AssertionError("Found enemy: " + xx + " " + yy + ", " +
                                     entitiesByPos[xx][yy]);
                         }
@@ -308,7 +336,7 @@ public class MapHelper {
     }
 
     interface BfsHandler {
-        boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack);
+        boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist);
 
         boolean shouldEnd(int x, int y, int dist);
     }
@@ -316,13 +344,24 @@ public class MapHelper {
     static class PathToTargetBfsHandler implements BfsHandler {
         final Position startPos;
         int dist = -1;
+        final int skipLastNCells;
 
-        PathToTargetBfsHandler(final Position startPos) {
+        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells) {
             this.startPos = startPos;
+            this.skipLastNCells = skipLastNCells;
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+            if (dist < skipLastNCells) {
+                return true;
+            }
+            switch (underAttack) {
+                case UNDER_ATTACK_DO_NOT_GO_THERE:
+                    return false;
+                case SAFE, UNDER_ATTACK:
+                    break;
+            }
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
                 case MY_BUILDING_OR_FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
@@ -355,7 +394,7 @@ public class MapHelper {
 
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
             // TODO: think about it?
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
@@ -375,7 +414,7 @@ public class MapHelper {
 
     static class PathToResourcesBfsHandler implements BfsHandler {
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
             switch (underAttack) {
                 case SAFE:
                     break;
@@ -409,7 +448,7 @@ public class MapHelper {
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
             switch (underAttack) {
                 case SAFE:
                     break;
@@ -493,7 +532,7 @@ public class MapHelper {
                     if (handler.shouldEnd(nx, ny, nextDist)) {
                         return;
                     }
-                    if (!handler.canGoThrough(canGoThrough[nx][ny], underAttack[nx][ny])) {
+                    if (!handler.canGoThrough(canGoThrough[nx][ny], underAttack[nx][ny], nextDist)) {
                         continue;
                     }
                     int nextCompressedCoord = compressCoord(nx, ny);
@@ -561,13 +600,13 @@ public class MapHelper {
     /**
      * @return first cell in the path
      */
-    public Position findBestPathToTarget(final Position startPos, final Position targetPos) {
+    public Position findBestPathToTarget(final Position startPos, final Position targetPos, int skipLastNCells) {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
         final List<Position> initialPositions = new ArrayList<>();
         initialPositions.add(targetPos);
-        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos);
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells);
         bfs.run(initialPositions, handler);
         if (!handler.foundPath()) {
             return null;

@@ -27,13 +27,24 @@ public class RangedUnitStrategy {
     }
 
     private boolean goToPosition(final Entity unit, final Position goToPos) {
-        Position firstCellInPath = state.map.findBestPathToTarget(unit.getPosition(), goToPos);
+        final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
+        Position firstCellInPath = state.map.findBestPathToTarget(unit.getPosition(), goToPos, attackRange);
         if (firstCellInPath != null) {
             state.addDebugTarget(unit.getPosition(), goToPos);
             state.move(unit, firstCellInPath);
             return true;
         }
         return false;
+    }
+
+    private boolean safeToDoRandomMoves(final Entity unit) {
+        List<Position> positions = state.getAllPossibleUnitMoves(unit);
+        for (Position pos : positions) {
+            if (state.map.underAttack[pos.getX()][pos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                return false;
+            }
+        }
+        return true;
     }
 
     void makeMoveForAll() {
@@ -91,7 +102,11 @@ public class RangedUnitStrategy {
                     continue;
                 }
             }
-            state.randomlyMoveAndAttack(unit);
+            if (safeToDoRandomMoves(unit)) {
+                state.randomlyMoveAndAttack(unit);
+            } else {
+                state.addDebugUnitInBadPosition(unit.getPosition());
+            }
         }
     }
 }

@@ -74,7 +74,8 @@ public class BuilderStrategy {
             this.builder = builder;
             this.where = where;
             this.buildingCellsNearby = computeBuildingCellsNearby(state, what);
-            this.distToZero = where.getX() + where.getY();
+            final int distToZeroMultiplier = what == TURRET ? (-1) : 1;
+            this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
         }
 
         @Override
