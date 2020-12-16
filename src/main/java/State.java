@@ -3,6 +3,7 @@ import model.*;
 import java.util.*;
 
 public class State {
+    boolean decidedWhatToWithBuilders = false;
     final Action actions;
     final PlayerView playerView;
     final Random rnd;
@@ -456,6 +457,14 @@ public class State {
 
     public boolean isOccupiedByBuilding(Position position) {
         return occupiedByBuildingsPositions.contains(position);
+    }
+
+    public boolean isOccupiedByResource(Position pos) {
+        if (!insideMap(pos)) {
+            return false;
+        }
+        final Entity entity = map.entitiesByPos[pos.getX()][pos.getY()];
+        return (entity != null && entity.getEntityType() == EntityType.RESOURCE);
     }
 
     public boolean alreadyHasAction(Entity unit) {

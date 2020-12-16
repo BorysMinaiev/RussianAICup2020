@@ -64,20 +64,33 @@ public class PositionsPicker {
         return -dist;
     }
 
-    // TODO: smarter bfs - if we want to mine resources, don't try to use the same cell
     static Position pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
         List<Position> unitPositions = state.findPossiblePositionToBuild(who, what);
         if (unitPositions.isEmpty()) {
             return null;
         }
         Position target = getTarget(state, who, what);
+
+        MapHelper.BfsQueue bfsQueue = null;
+        if (what == EntityType.BUILDER_UNIT) {
+            if (!state.decidedWhatToWithBuilders) {
+                throw new AssertionError("Wrong order of operations");
+            }
+            bfsQueue = state.map.findPathsToResources();
+        }
         if (target != null) {
             List<PositionWithScore> options = new ArrayList<>();
             for (Position pos : unitPositions) {
-                options.add(new PositionWithScore(pos, calcPositionScore(pos, what, target)));
+                double score = bfsQueue == null ? calcPositionScore(pos, what, target) : -bfsQueue.getDist(pos.getX(), pos.getY());
+                options.add(new PositionWithScore(pos, score));
             }
             Collections.sort(options);
-            return options.get(0).pos;
+            int cntSameScore = 1;
+            while (cntSameScore != options.size() && options.get(cntSameScore).compareTo(options.get(0)) == 0) {
+                cntSameScore++;
+            }
+            int useOption = state.rnd.nextInt(cntSameScore);
+            return options.get(useOption).pos;
         }
         return pickRandomPosition(unitPositions);
     }

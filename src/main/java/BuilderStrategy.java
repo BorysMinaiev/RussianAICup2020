@@ -47,41 +47,45 @@ public class BuilderStrategy {
     static class BuildOption implements Comparable<BuildOption> {
         final Entity builder;
         final Position where;
-        final int buildingCellsNearby;
+        final int occupiedCellsNearby;
         final int distToZero;
 
-        int computeBuildingCellsNearby(final State state, final EntityType what) {
-            int occupiedCellsNearby = 0;
-
+        List<Boolean> computeBuildingOrResourcesNearby(final State state, final EntityType what) {
             int buildingSize = state.getEntityTypeProperties(what).getSize();
             Position bottomLeft = where.shift(-1, -1);
             Position topRight = where.shift(buildingSize, buildingSize);
-            for (int x = bottomLeft.getX(); x <= topRight.getX(); x++) {
-                for (int y = bottomLeft.getY(); y <= topRight.getY(); y++) {
-                    if (!CellsUtils.isOnRectBorder(bottomLeft, topRight, x, y)) {
-                        continue;
-                    }
-                    if (state.isOccupiedByBuilding(new Position(x, y))) {
-                        occupiedCellsNearby++;
-                    }
+            List<Position> posToCheck = CellsUtils.getPositionsOnRectBorderCCW(bottomLeft, topRight);
+            List<Boolean> occupied = new ArrayList<>();
+            for (Position pos : posToCheck) {
+                occupied.add(state.isOccupiedByBuilding(pos) || state.isOccupiedByResource(pos));
+            }
+            return occupied;
+        }
+
+        private int occupiedCellsNearby(List<Boolean> occupied) {
+            int occupiedCellsNearby = 0;
+            for (boolean occ : occupied) {
+                if (occ) {
+                    occupiedCellsNearby++;
                 }
             }
-
             return occupiedCellsNearby;
         }
 
         BuildOption(final State state, Entity builder, Position where, EntityType what) {
             this.builder = builder;
             this.where = where;
-            this.buildingCellsNearby = computeBuildingCellsNearby(state, what);
+            final List<Boolean> occupiedCellsNearby = computeBuildingOrResourcesNearby(state, what);
+            ;
+            this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
             final int distToZeroMultiplier = what == TURRET ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
         }
 
         @Override
         public int compareTo(BuildOption o) {
-            if (buildingCellsNearby != o.buildingCellsNearby) {
-                return Integer.compare(buildingCellsNearby, o.buildingCellsNearby);
+            if (occupiedCellsNearby != o.occupiedCellsNearby) {
+                return Integer.compare(occupiedCellsNearby, o.occupiedCellsNearby);
             }
             return Integer.compare(distToZero, o.distToZero);
         }
@@ -216,7 +220,8 @@ public class BuilderStrategy {
                     if (willBeUnderAttack(state, toBuild, where)) {
                         continue;
                     }
-                    buildOptions.add(new BuildOption(state, builder, where, toBuild));
+                    BuildOption buildOption = new BuildOption(state, builder, where, toBuild);
+                    buildOptions.add(buildOption);
                 }
             }
             Collections.sort(buildOptions);
@@ -244,6 +249,7 @@ public class BuilderStrategy {
         for (Entity builder : needPathToResources) {
             findSafePathToResources(state, builder, bfsQueue);
         }
+        state.decidedWhatToWithBuilders = true;
     }
 
     private static boolean willBeUnderAttack(State state, EntityType toBuild, Position where) {
