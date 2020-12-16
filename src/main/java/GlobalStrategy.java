@@ -108,6 +108,10 @@ public class GlobalStrategy {
         static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
         static ExpectedEntitiesDistribution V3 = new ExpectedEntitiesDistribution(40, 0, 9, 3);
+        static ExpectedEntitiesDistribution ONLY_BUILDERS = new ExpectedEntitiesDistribution(1, 0, 0, 0);
+        static ExpectedEntitiesDistribution ALMOST_RANGED = new ExpectedEntitiesDistribution(1, 0, 2, 0);
+
+
     }
 
     final int MAX_BUILDERS = 50;
@@ -241,7 +245,9 @@ public class GlobalStrategy {
         if (needMoreBuilders()) {
             return BUILDER_UNIT;
         }
-        ExpectedEntitiesDistribution distribution = ExpectedEntitiesDistribution.V3;
+        ExpectedEntitiesDistribution distribution = state.playerView.getCurrentTick() * 2 < state.playerView.getMaxTickCount() ?
+                ExpectedEntitiesDistribution.ONLY_BUILDERS :
+                ExpectedEntitiesDistribution.ALMOST_RANGED;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
         }

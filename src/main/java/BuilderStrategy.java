@@ -78,7 +78,7 @@ public class BuilderStrategy {
             final List<Boolean> occupiedCellsNearby = computeBuildingOrResourcesNearby(state, what);
             ;
             this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
-            final int distToZeroMultiplier = what == TURRET ? (-1) : 1;
+            final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
         }
 
