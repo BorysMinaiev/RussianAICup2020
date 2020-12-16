@@ -76,7 +76,6 @@ public class BuilderStrategy {
             this.builder = builder;
             this.where = where;
             final List<Boolean> occupiedCellsNearby = computeBuildingOrResourcesNearby(state, what);
-            ;
             this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
             final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
@@ -98,7 +97,7 @@ public class BuilderStrategy {
         if (goTo != null) {
             state.move(builder, goTo);
             if (state.debugInterface != null) {
-                final Position targetCell = state.map.findLastCellOnPath(pos, currentDist, bfsQueue);
+                final Position targetCell = state.map.findLastCellOnPath(pos, currentDist, bfsQueue, false);
                 state.debugTargets.put(builder.getPosition(), targetCell);
             }
         } else {
@@ -245,11 +244,82 @@ public class BuilderStrategy {
             }
             needPathToResources.add(builder);
         }
-        MapHelper.BfsQueue bfsQueue = state.map.findPathsToResources();
-        for (Entity builder : needPathToResources) {
-            findSafePathToResources(state, builder, bfsQueue);
-        }
+        findPathsToResources(state, needPathToResources);
         state.decidedWhatToWithBuilders = true;
+    }
+
+    static long pathDistToWeight(int dist) {
+        final int MAX_DIST = 10;
+        final int BASE = 10;
+        long res = 0;
+        for (int i = 0; i < MAX_DIST; i++) {
+            res = res * BASE;
+            if (dist >= i + 1) {
+                res++;
+            }
+        }
+        res = res * 1000 + dist;
+        return res;
+    }
+
+    private static void findPathsToResources(final State state, final List<Entity> builders) {
+        final int MAX_OPTIONS = 20;
+        final Map<Position, Integer> compressedCoords = new HashMap<>();
+        List<MapHelper.PathSuggestion>[] suggestionsForBuilders = new List[builders.size()];
+        for (int i = 0; i < builders.size(); i++) {
+            final Entity builder = builders.get(i);
+            final List<MapHelper.PathSuggestion> suggestions = state.map.findPathsToResourcesFromBuilder(builder.getPosition(), MAX_OPTIONS);
+            for (MapHelper.PathSuggestion suggestion : suggestions) {
+                final Position targetCell = suggestion.targetCell;
+                if (!compressedCoords.containsKey(targetCell)) {
+                    compressedCoords.put(targetCell, compressedCoords.size());
+                }
+            }
+            suggestionsForBuilders[i] = suggestions;
+        }
+        MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + builders.size() + compressedCoords.size() + 1);
+        MinCostMaxFlow.Edge[][] edges = new MinCostMaxFlow.Edge[builders.size()][];
+        for (int i = 0; i < builders.size(); i++) {
+            minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
+            final List<MapHelper.PathSuggestion> suggestions = suggestionsForBuilders[i];
+            edges[i] = new MinCostMaxFlow.Edge[suggestions.size()];
+            for (int j = 0; j < suggestions.size(); j++) {
+                final MapHelper.PathSuggestion suggestion = suggestions.get(j);
+                long weight = pathDistToWeight(suggestion.dist);
+                int coordId = compressedCoords.get(suggestion.targetCell);
+                edges[i][j] = minCostMaxFlow.addEdge(1 + i, 1 + builders.size() + coordId, 1, weight);
+            }
+        }
+        for (int i = 0; i < compressedCoords.size(); i++) {
+            minCostMaxFlow.addEdge(1 + builders.size() + i, minCostMaxFlow.n - 1, 1, 0);
+        }
+        minCostMaxFlow.getMinCostMaxFlow(0, minCostMaxFlow.n - 1);
+        for (int i = 0; i < builders.size(); i++) {
+            final Entity builder = builders.get(i);
+            boolean found = false;
+            for (int j = 0; j < edges[i].length; j++) {
+                final MinCostMaxFlow.Edge edge = edges[i][j];
+                if (edge.flow > 0) {
+                    MapHelper.PathSuggestion suggestion = suggestionsForBuilders[i].get(j);
+                    final Position targetCell = suggestion.targetCell;
+                    state.move(builder, suggestion.firstCellOnPath);
+                    if (state.debugInterface != null) {
+                        state.debugTargets.put(builder.getPosition(), targetCell);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                if (!moveAwayFromAttack(state, builder)) {
+                    // I will die, but at least will do something!
+                    state.addDebugUnitInBadPosition(builder.getPosition());
+                    if (!mineRightNow(state, builder)) {
+                        // TODO: do something?
+                    }
+                }
+            }
+        }
     }
 
     private static boolean willBeUnderAttack(State state, EntityType toBuild, Position where) {

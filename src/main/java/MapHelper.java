@@ -571,11 +571,14 @@ public class MapHelper {
         return null;
     }
 
-    public Position findLastCellOnPath(final Position startPos, final int totalDist, final BfsQueue bfs) {
+    public Position findLastCellOnPath(final Position startPos, final int totalDist, final BfsQueue bfs, boolean minDistIsOne) {
         Dir[] dirs = getDirs(0, 0);
         Position curPos = startPos;
         int curDist = totalDist;
         while (true) {
+            if (minDistIsOne && curDist == 1) {
+                break;
+            }
             boolean found = false;
             for (Dir dir : dirs) {
                 final int nx = curPos.getX() + dir.dx;
@@ -588,9 +591,10 @@ public class MapHelper {
                 }
             }
             if (!found) {
-                return curPos;
+                break;
             }
         }
+        return curPos;
     }
 
     public void updateCellCanGoThrough(final Position pos, final CAN_GO_THROUGH type) {
@@ -666,5 +670,89 @@ public class MapHelper {
         PathToBuildersBfsHandler handler = new PathToBuildersBfsHandler(maxDist, needBuilders, state);
         final BfsQueue queue = findPathsToCells(initialPositions, handler);
         return new PathsFromBuilders(handler, queue);
+    }
+
+    class PathSuggestion {
+        final Position targetCell;
+        final Position firstCellOnPath;
+        final int dist;
+
+        public PathSuggestion(Position targetCell, Position firstCellOnPath, final int dist) {
+            this.targetCell = targetCell;
+            this.firstCellOnPath = firstCellOnPath;
+            this.dist = dist;
+        }
+    }
+
+    class PathsToResourcesFromBuilderBfsHandler implements BfsHandler {
+        final List<Position> targetCells;
+        final int maxOptions;
+
+        int[] dx = new int[]{0, -1, 1, 0};
+        int[] dy = new int[]{1, 0, 0, -1};
+
+        boolean isTargetCell(int x, int y) {
+            for (int it = 0; it < dx.length; it++) {
+                final int nx = x + dx[it];
+                final int ny = y + dy[it];
+                if (insideMap(nx, ny)) {
+                    final Entity entity = entitiesByPos[nx][ny];
+                    if (entity != null && entity.getEntityType() == EntityType.RESOURCE) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        PathsToResourcesFromBuilderBfsHandler(int maxOptions) {
+            targetCells = new ArrayList<>();
+            this.maxOptions = maxOptions;
+        }
+
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+            switch (underAttack) {
+                case SAFE:
+                    break;
+                case UNDER_ATTACK:
+                    return false;
+            }
+            if (dist == 1) {
+                return switch (type) {
+                    case EMPTY_CELL, MY_BUILDER -> true;
+                    case MY_BUILDING_OR_FOOD, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+                };
+            }
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+            };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            if (targetCells.size() >= maxOptions) {
+                return true;
+            }
+            if (isTargetCell(x, y) && canGoThrough(canGoThrough[x][y], underAttack[x][y], dist)) {
+                targetCells.add(new Position(x, y));
+            }
+            return false;
+        }
+    }
+
+    public List<PathSuggestion> findPathsToResourcesFromBuilder(final Position startPos, final int maxOptions) {
+        PathsToResourcesFromBuilderBfsHandler handler = new PathsToResourcesFromBuilderBfsHandler(maxOptions);
+        final List<Position> initialPositions = new ArrayList<>();
+        initialPositions.add(startPos);
+        final BfsQueue queue = findPathsToCells(initialPositions, handler);
+        List<PathSuggestion> pathSuggestions = new ArrayList<>();
+        for (Position targetCell : handler.targetCells) {
+            final int dist = queue.getDist(targetCell.getX(), targetCell.getY());
+            final Position firstCellOnPath = findLastCellOnPath(targetCell, dist, queue, true);
+            pathSuggestions.add(new PathSuggestion(targetCell, firstCellOnPath, dist));
+        }
+        return pathSuggestions;
     }
 }
