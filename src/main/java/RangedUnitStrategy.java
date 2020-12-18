@@ -99,7 +99,7 @@ public class RangedUnitStrategy {
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
             if (!state.globalStrategy.shouldBeAggressive()) {
                 if (closestEnemy != null && !state.inMyRegionOfMap(closestEnemy)) {
-                    closestEnemy = null;
+//                    closestEnemy = null;
                 }
             }
             if (closestEnemy != null) {
@@ -107,13 +107,13 @@ public class RangedUnitStrategy {
                     continue;
                 }
             }
-            if (state.globalStrategy.shouldBeAggressive()) {
+//            if (state.globalStrategy.shouldBeAggressive()) {
                 if (safeToDoRandomMoves(unit)) {
                     state.randomlyMoveAndAttack(unit);
                 } else {
                     state.addDebugUnitInBadPosition(unit.getPosition());
                 }
-            }
+//            }
         }
     }
 }
