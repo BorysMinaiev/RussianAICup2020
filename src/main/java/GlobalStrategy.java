@@ -228,6 +228,10 @@ public class GlobalStrategy {
         }
     }
 
+    boolean shouldBeAggressive() {
+        return state.playerView.getCurrentTick() * 2 > state.playerView.getMaxTickCount();
+    }
+
     EntityType whatNextToBuildWithoutCache() {
         ProtectSomething toProtect = needToProtectSomething();
         if (toProtect != null && toProtect.whatToBuild != null && hasEnoughHousesToBuildUnits()) {
@@ -245,9 +249,9 @@ public class GlobalStrategy {
         if (needMoreBuilders()) {
             return BUILDER_UNIT;
         }
-        ExpectedEntitiesDistribution distribution = state.playerView.getCurrentTick() * 2 < state.playerView.getMaxTickCount() ?
-                ExpectedEntitiesDistribution.ONLY_BUILDERS :
-                ExpectedEntitiesDistribution.ALMOST_RANGED;
+        ExpectedEntitiesDistribution distribution = shouldBeAggressive() ?
+                ExpectedEntitiesDistribution.ALMOST_RANGED :
+                ExpectedEntitiesDistribution.ONLY_BUILDERS;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
         }

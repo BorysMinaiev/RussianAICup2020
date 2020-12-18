@@ -470,4 +470,10 @@ public class State {
     public boolean alreadyHasAction(Entity unit) {
         return actions.getEntityActions().get(unit.getId()) != EntityAction.emptyAction;
     }
+
+    public boolean inMyRegionOfMap(Entity enemy) {
+        final Position pos = enemy.getPosition();
+        final int mapSize = playerView.getMapSize();
+        return pos.getX() < mapSize / 2 && pos.getY() < mapSize / 2;
+    }
 }
