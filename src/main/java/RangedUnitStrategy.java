@@ -1,6 +1,4 @@
-import model.Entity;
-import model.EntityType;
-import model.Position;
+import model.*;
 
 import java.util.*;
 
@@ -26,25 +24,66 @@ public class RangedUnitStrategy {
         state.attack(who, what);
     }
 
+    private void eat(final Entity unit, final Position pos) {
+        state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()]);
+        state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_UNIT);
+    }
+
+    private void blocked(final Entity unit) {
+        state.addDebugUnitInBadPosition(unit.getPosition());
+        state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_ATTACKING_UNIT);
+        state.doNothing(unit);
+    }
+
     private boolean goToPosition(final Entity unit, final Position goToPos) {
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
-        Position firstCellInPath = state.map.findBestPathToTarget(unit.getPosition(), goToPos, attackRange);
+        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange);
         if (firstCellInPath != null) {
             state.addDebugTarget(unit.getPosition(), goToPos);
-            state.move(unit, firstCellInPath);
+            if (state.isOccupiedByResource(firstCellInPath)) {
+                eat(unit, firstCellInPath);
+            } else {
+                state.move(unit, firstCellInPath);
+            }
             return true;
         }
         return false;
     }
 
-    private boolean safeToDoRandomMoves(final Entity unit) {
-        List<Position> positions = state.getAllPossibleUnitMoves(unit);
-        for (Position pos : positions) {
-            if (state.map.underAttack[pos.getX()][pos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
-                return false;
+    void resolveEatingFoodPaths(final List<Entity> units) {
+        while (true) {
+            boolean changed = false;
+            for (Entity unit : units) {
+                EntityAction action = state.getUnitAction(unit);
+                if (action == null) {
+                    continue;
+                }
+                MoveAction moveAction = action.getMoveAction();
+                if (moveAction == null) {
+                    continue;
+                }
+                final Position movePos = moveAction.getTarget();
+                if (state.map.canGoThrough[movePos.getX()][movePos.getY()] == MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_UNIT) {
+                    changed = true;
+                    final Entity who = state.map.entitiesByPos[movePos.getX()][movePos.getY()];
+                    final EntityAction hisAction = state.getUnitAction(who);
+                    final AttackAction attackAction = hisAction.getAttackAction();
+                    if (attackAction == null) {
+                        throw new AssertionError("Eat food, but not attack?");
+                    }
+                    final Entity resource = state.getEntityById(attackAction.getTarget());
+                    final Position foodPos = resource.getPosition();
+                    if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
+                        eat(unit, resource.getPosition());
+                    } else {
+                        blocked(unit);
+                    }
+                }
+            }
+            if (!changed) {
+                break;
             }
         }
-        return true;
     }
 
     void makeMoveForAll() {
@@ -97,23 +136,20 @@ public class RangedUnitStrategy {
         }
         for (Entity unit : notAttackingOnCurrentTurn) {
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
-            if (!state.globalStrategy.shouldBeAggressive()) {
-                if (closestEnemy != null && !state.inMyRegionOfMap(closestEnemy)) {
-//                    closestEnemy = null;
-                }
-            }
             if (closestEnemy != null) {
-                if (goToPosition(unit, closestEnemy.getPosition())) {
-                    continue;
+                if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || state.inMyRegionOfMap(closestEnemy)) {
+                    if (goToPosition(unit, closestEnemy.getPosition())) {
+                        continue;
+                    }
                 }
             }
-//            if (state.globalStrategy.shouldBeAggressive()) {
-                if (safeToDoRandomMoves(unit)) {
-                    state.randomlyMoveAndAttack(unit);
-                } else {
-                    state.addDebugUnitInBadPosition(unit.getPosition());
-                }
-//            }
+            final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
+            if (!goToPosition(unit, globalTargetPos)) {
+                blocked(unit);
+            }
         }
+        resolveEatingFoodPaths(allRangedUnits);
     }
+
+    final int CLOSE_ENOUGH = 20;
 }

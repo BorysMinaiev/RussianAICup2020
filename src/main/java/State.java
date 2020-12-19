@@ -26,6 +26,7 @@ public class State {
     final MapHelper map;
     final DebugInterface debugInterface;
     int debugPos = 30;
+    final Map<Integer, Entity> entityById;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -258,11 +259,20 @@ public class State {
         this.entitiesByPlayer = computeEntitiesByPlayer();
         this.allResources = computeAllResourcesList();
         this.totalResources = computeTotalResources();
+        this.entityById = computeEntityById();
         this.debugTargets = new HashMap<>();
         this.debugUnitsInBadPostion = new HashSet<>();
         this.map = new MapHelper(this);
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
+    }
+
+    private Map<Integer, Entity> computeEntityById() {
+        Map<Integer, Entity> entityMap = new HashMap<>();
+        for (Entity entity : playerView.getEntities()) {
+            entityMap.put(entity.getId(), entity);
+        }
+        return entityMap;
     }
 
     public void addDebugTarget(final Position from, final Position to) {
@@ -416,7 +426,7 @@ public class State {
                 pos.getY() < playerView.getMapSize();
     }
 
-    public List<Position> getAllPossibleUnitMoves(Entity unit) {
+    public List<Position> getAllPossibleUnitMoves(Entity unit, boolean okToAttackFood) {
         List<Position> canGo = new ArrayList<>();
         int[] dx = new int[]{-1, 0, 0, 1};
         int[] dy = new int[]{0, -1, 1, 0};
@@ -425,7 +435,7 @@ public class State {
             if (!insideMap(checkPos)) {
                 continue;
             }
-            if (!MapHelper.canGoThereOnCurrentTurn(map.canGoThrough[checkPos.getX()][checkPos.getY()])) {
+            if (!MapHelper.canGoThereOnCurrentTurn(map.canGoThrough[checkPos.getX()][checkPos.getY()], okToAttackFood)) {
                 continue;
             }
             canGo.add(checkPos);
@@ -475,5 +485,17 @@ public class State {
         final Position pos = enemy.getPosition();
         final int mapSize = playerView.getMapSize();
         return pos.getX() < mapSize / 2 && pos.getY() < mapSize / 2;
+    }
+
+    public EntityAction getUnitAction(Entity ent) {
+        return actions.getEntityActions().get(ent.getId());
+    }
+
+    public Entity getEntityById(Integer id) {
+        return entityById.get(id);
+    }
+
+    public void doNothing(Entity unit) {
+        setAction(unit, EntityAction.emptyAction);
     }
 }

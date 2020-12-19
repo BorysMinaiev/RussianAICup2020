@@ -1,5 +1,6 @@
 import model.Entity;
 import model.EntityType;
+import model.Player;
 import model.Position;
 
 import java.util.*;
@@ -10,8 +11,23 @@ public class GlobalStrategy {
     private static final int LOW_TOTAL_RESOURCES = 10000;
     State state;
 
+    static void updateWasInCorner(State state) {
+        Position[] corners = new Position[wasInThatCorner.length];
+        for (int i = 1; i < corners.length; i++) {
+            corners[i] = getPositionByPlayerId(i, state.playerView.getMapSize());
+        }
+        for (Entity entity : state.myEntities) {
+            for (int i = 1; i < corners.length; i++) {
+                if (entity.getPosition().distTo(corners[i]) == 0) {
+                    wasInThatCorner[i] = true;
+                }
+            }
+        }
+    }
+
     public GlobalStrategy(State state) {
         this.state = state;
+        updateWasInCorner(state);
     }
 
     private boolean expectedNeedHouse(int currentUsage, int currentExpected) {
@@ -251,11 +267,51 @@ public class GlobalStrategy {
         }
         ExpectedEntitiesDistribution distribution = shouldBeAggressive() ?
                 ExpectedEntitiesDistribution.ALMOST_RANGED :
-                ExpectedEntitiesDistribution.ONLY_BUILDERS;
+                ExpectedEntitiesDistribution.V3;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
         }
         return distribution.chooseWhatToBuild(state);
         // TODO: make it smarter
     }
+
+    static boolean[] wasInThatCorner = new boolean[5];
+
+    private static Position getPositionByPlayerId(int playerId, int mapSize) {
+        return switch (playerId) {
+            case 1 -> new Position(0, 0);
+            case 2 -> new Position(mapSize - 1, mapSize - 1);
+            case 3 -> new Position(mapSize - 1, 0);
+            case 4 -> new Position(0, mapSize - 1);
+            default -> throw new IllegalStateException("Unexpected value: " + playerId);
+        };
+    }
+
+    Position whichPlayerToAttack() {
+        Player[] players = state.playerView.getPlayers();
+        final int mapSize = state.playerView.getMapSize();
+        int bScore = 0;
+        Player bPlayer = null;
+        for (Player player : players) {
+            if (player.getId() == state.playerView.getMyId()) {
+                continue;
+            }
+            if (wasInThatCorner[player.getId()]) {
+                continue;
+            }
+            int score = player.getScore();
+            if (player.getId() == 2) {
+                score /= 2;
+            }
+            if (score > bScore) {
+                bScore = score;
+                bPlayer = player;
+            }
+        }
+        if (bPlayer == null) {
+            return new Position(mapSize - 1, mapSize - 1);
+        }
+        return getPositionByPlayerId(bPlayer.getId(), mapSize);
+    }
+
 }

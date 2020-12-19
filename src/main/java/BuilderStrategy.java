@@ -26,7 +26,7 @@ public class BuilderStrategy {
     }
 
     static boolean moveAwayFromAttack(final State state, final Entity builder) {
-        List<Position> allPossibleMoves = state.getAllPossibleUnitMoves(builder);
+        List<Position> allPossibleMoves = state.getAllPossibleUnitMoves(builder, false);
         Position bestPosToGo = builder.getPosition();
         double currentAttackScore = state.attackedByPos.getOrDefault(bestPosToGo, 0.0);
         Collections.shuffle(allPossibleMoves, state.rnd);
@@ -87,27 +87,6 @@ public class BuilderStrategy {
                 return Integer.compare(occupiedCellsNearby, o.occupiedCellsNearby);
             }
             return Integer.compare(distToZero, o.distToZero);
-        }
-    }
-
-    static void findSafePathToResources(final State state, final Entity builder, final MapHelper.BfsQueue bfsQueue) {
-        final Position pos = builder.getPosition();
-        final int currentDist = bfsQueue.getDist(pos.getX(), pos.getY());
-        final Position goTo = state.map.findFirstCellOnPath(pos, pos, currentDist, bfsQueue);
-        if (goTo != null) {
-            state.move(builder, goTo);
-            if (state.debugInterface != null) {
-                final Position targetCell = state.map.findLastCellOnPath(pos, currentDist, bfsQueue, false);
-                state.debugTargets.put(builder.getPosition(), targetCell);
-            }
-        } else {
-            if (!moveAwayFromAttack(state, builder)) {
-                // I will die, but at least will do something!
-                state.addDebugUnitInBadPosition(builder.getPosition());
-                if (!mineRightNow(state, builder)) {
-                    // TODO: do something?
-                }
-            }
         }
     }
 

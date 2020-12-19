@@ -12,10 +12,13 @@ public class MapHelper {
 
     enum CAN_GO_THROUGH {
         EMPTY_CELL,
-        MY_BUILDING_OR_FOOD,
+        MY_BUILDING,
+        FOOD,
+        UNKNOWN,
         MY_BUILDER,
         MY_WORKING_BUILDER,
-        MY_ATTACKING_UNIT
+        MY_ATTACKING_UNIT,
+        MY_EATING_FOOD_UNIT
     }
 
     enum UNDER_ATTACK {
@@ -28,6 +31,7 @@ public class MapHelper {
     final UNDER_ATTACK[][] underAttack;
     final int myPlayerId;
     final BfsQueue bfs;
+    final Dijkstra dijkstra;
 
     private boolean isEntityCouldBeAttacked(final Entity entity, boolean okToAttackTurrets) {
         boolean canAttack = entity != null && entity.getPlayerId() != null && entity.getPlayerId() != myPlayerId;
@@ -56,11 +60,11 @@ public class MapHelper {
     private CAN_GO_THROUGH computeCanGoThrough(final Entity entity) {
         if (entity.getPlayerId() == null) {
             // TODO: potentially I can...
-            return CAN_GO_THROUGH.MY_BUILDING_OR_FOOD;
+            return CAN_GO_THROUGH.FOOD;
         }
         if (entity.getPlayerId() == myPlayerId) {
             if (entity.getEntityType().isBuilding()) {
-                return CAN_GO_THROUGH.MY_BUILDING_OR_FOOD;
+                return CAN_GO_THROUGH.MY_BUILDING;
             }
             if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
                 return CAN_GO_THROUGH.MY_BUILDER;
@@ -108,6 +112,23 @@ public class MapHelper {
         }
     }
 
+    private void markSeeCells(final Entity entity) {
+        int sightRange = state.getEntityProperties(entity).getSightRange();
+        final Position bottomLeft = entity.getPosition();
+        final int entitySize = state.getEntityProperties(entity).getSize();
+        final Position topRight = bottomLeft.shift(entitySize - 1, entitySize - 1);
+        for (int x = bottomLeft.getX() - sightRange; x <= topRight.getX() + sightRange; x++) {
+            for (int y = bottomLeft.getY() - sightRange; y <= topRight.getY() + sightRange; y++) {
+                if (!insideMap(x, y)) {
+                    continue;
+                }
+                if (CellsUtils.distBetweenEntityAndPos(state, entity, x, y) <= sightRange) {
+                    canGoThrough[x][y] = CAN_GO_THROUGH.EMPTY_CELL;
+                }
+            }
+        }
+    }
+
     MapHelper(final State state) {
         this.state = state;
         final PlayerView playerView = state.playerView;
@@ -117,7 +138,10 @@ public class MapHelper {
         canGoThrough = new CAN_GO_THROUGH[size][size];
         underAttack = new UNDER_ATTACK[size][size];
         for (CAN_GO_THROUGH[] pass : canGoThrough) {
-            Arrays.fill(pass, CAN_GO_THROUGH.EMPTY_CELL);
+            Arrays.fill(pass, CAN_GO_THROUGH.UNKNOWN);
+        }
+        for (Entity entity : state.myEntities) {
+            markSeeCells(entity);
         }
         for (int i = 0; i < size; i++) {
             Arrays.fill(underAttack[i], UNDER_ATTACK.SAFE);
@@ -154,9 +178,10 @@ public class MapHelper {
         }
         final int totalCells = size * size;
         this.bfs = new BfsQueue(totalCells);
+        this.dijkstra = new Dijkstra(this);
     }
 
-    private boolean insideMap(final int x, final int y) {
+    public boolean insideMap(final int x, final int y) {
         return x >= 0 && x < entitiesByPos.length && y >= 0 && y < entitiesByPos[x].length;
     }
 
@@ -341,7 +366,7 @@ public class MapHelper {
         boolean shouldEnd(int x, int y, int dist);
     }
 
-    static class PathToTargetBfsHandler implements BfsHandler {
+    static class PathToTargetBfsHandler implements BfsHandler, Dijkstra.DijkstraHandler {
         final Position startPos;
         int dist = -1;
         final int skipLastNCells;
@@ -363,8 +388,8 @@ public class MapHelper {
                     break;
             }
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
-                case MY_BUILDING_OR_FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT -> true;
+                case MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -375,6 +400,14 @@ public class MapHelper {
                 return true;
             }
             return false;
+        }
+
+        @Override
+        public int getEdgeCost(CAN_GO_THROUGH type) {
+            return switch (type) {
+                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
+                case UNKNOWN, FOOD -> 2;
+            };
         }
 
         public boolean foundPath() {
@@ -397,8 +430,8 @@ public class MapHelper {
         public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
             // TODO: think about it?
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT -> true;
-                case MY_BUILDING_OR_FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT -> true;
+                case MY_BUILDING, FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -422,8 +455,8 @@ public class MapHelper {
                     return false;
             }
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -456,8 +489,8 @@ public class MapHelper {
                     return false;
             }
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
 
@@ -479,7 +512,7 @@ public class MapHelper {
         }
     }
 
-    class BfsQueue {
+    class BfsQueue implements QueueDist {
         int qIt, qSz;
         final int[] queue;
         final int[] visited;
@@ -541,34 +574,60 @@ public class MapHelper {
             }
         }
 
-        int getDist(int x, int y) {
+        public int getDist(int x, int y) {
             int compressedCoord = compressCoord(x, y);
             if (visited[compressedCoord] != currentVisitedIter) {
                 return Integer.MAX_VALUE;
             }
             return dist[compressedCoord];
         }
+
+        @Override
+        public int getEdgeCost(int x, int y) {
+            return 1;
+        }
     }
 
-    public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type) {
+    public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type, boolean okToAttackFood) {
         return switch (type) {
-            case EMPTY_CELL, MY_BUILDER -> true;
-            case MY_BUILDING_OR_FOOD, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+            case EMPTY_CELL, UNKNOWN, MY_BUILDER -> true;
+            case MY_BUILDING, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+            case FOOD, MY_EATING_FOOD_UNIT -> okToAttackFood;
         };
     }
 
-    public Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final BfsQueue bfs) {
+    static class FirstMoveOption implements Comparable<FirstMoveOption> {
+        final Position goTo;
+        final int dist;
+
+        public FirstMoveOption(Position goTo, int dist) {
+            this.goTo = goTo;
+            this.dist = dist;
+        }
+
+        @Override
+        public int compareTo(FirstMoveOption o) {
+            return Integer.compare(dist, o.dist);
+        }
+    }
+
+    public Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final QueueDist bfs, boolean canAttackResources) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
+        List<FirstMoveOption> options = new ArrayList<>();
         for (Dir dir : dirs) {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
-            if (insideMap(nx, ny) && bfs.getDist(nx, ny) < totalDist) {
-                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny])) {
-                    return new Position(nx, ny);
+            if (insideMap(nx, ny) && bfs.getDist(nx, ny) + bfs.getEdgeCost(nx, ny) <= totalDist) {
+                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources)) {
+                    options.add(new FirstMoveOption(new Position(nx, ny), bfs.getDist(nx, ny)));
                 }
             }
         }
-        return null;
+        Collections.sort(options);
+        if (options.isEmpty()) {
+            return null;
+        }
+        return options.get(0).goTo;
     }
 
     public Position findLastCellOnPath(final Position startPos, final int totalDist, final BfsQueue bfs, boolean minDistIsOne) {
@@ -601,6 +660,7 @@ public class MapHelper {
         canGoThrough[pos.getX()][pos.getY()] = type;
     }
 
+    // TODO: remove??!!!
     /**
      * @return first cell in the path
      */
@@ -615,7 +675,19 @@ public class MapHelper {
         if (!handler.foundPath()) {
             return null;
         }
-        return findFirstCellOnPath(startPos, targetPos, handler.dist, bfs);
+        return findFirstCellOnPath(startPos, targetPos, handler.dist, bfs, true);
+    }
+
+    /**
+     * @return first cell in the path
+     */
+    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells) {
+        if (startPos.distTo(targetPos) == 0) {
+            return null;
+        }
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells);
+        QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler);
+        return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true);
     }
 
 
@@ -657,7 +729,7 @@ public class MapHelper {
                 // TODO: fix target cell
                 final Position pos = builder.getPosition();
                 final int dist = queue.getDist(pos.getX(), pos.getY());
-                final Position firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue);
+                final Position firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue, false);
                 if (firstCell == null) {
                     continue;
                 }
@@ -720,13 +792,13 @@ public class MapHelper {
             }
             if (dist == 1) {
                 return switch (type) {
-                    case EMPTY_CELL, MY_BUILDER -> true;
-                    case MY_BUILDING_OR_FOOD, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
+                    case EMPTY_CELL, UNKNOWN, MY_BUILDER -> true;
+                    case MY_BUILDING, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_WORKING_BUILDER -> false;
                 };
             }
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING_OR_FOOD, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
 
