@@ -617,10 +617,10 @@ public class MapHelper {
         for (Dir dir : dirs) {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
-            final int distFromNext = bfs.getDist(nx, ny);
             if (!insideMap(nx, ny)) {
                 continue;
             }
+            final int distFromNext = bfs.getDist(nx, ny);
             if (distFromNext >= Integer.MAX_VALUE / 2) {
                 continue;
             }
