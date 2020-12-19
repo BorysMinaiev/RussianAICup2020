@@ -617,9 +617,16 @@ public class MapHelper {
         for (Dir dir : dirs) {
             final int nx = startPos.getX() + dir.dx;
             final int ny = startPos.getY() + dir.dy;
-            if (insideMap(nx, ny) && bfs.getDist(nx, ny) + bfs.getEdgeCost(nx, ny) <= totalDist) {
+            final int distFromNext = bfs.getDist(nx, ny);
+            if (!insideMap(nx, ny)) {
+                continue;
+            }
+            if (distFromNext >= Integer.MAX_VALUE / 2) {
+                continue;
+            }
+            if (insideMap(nx, ny) && distFromNext + bfs.getEdgeCost(nx, ny) <= totalDist) {
                 if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources)) {
-                    options.add(new FirstMoveOption(new Position(nx, ny), bfs.getDist(nx, ny)));
+                    options.add(new FirstMoveOption(new Position(nx, ny), distFromNext));
                 }
             }
         }

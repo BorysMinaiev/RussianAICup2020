@@ -8,8 +8,6 @@ public class Dijkstra {
     interface DijkstraHandler {
         boolean canGoThrough(MapHelper.CAN_GO_THROUGH type, MapHelper.UNDER_ATTACK underAttack, int dist);
 
-        boolean shouldEnd(int x, int y, int dist);
-
         int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through);
     }
 

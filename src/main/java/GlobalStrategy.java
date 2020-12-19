@@ -14,7 +14,7 @@ public class GlobalStrategy {
     static void updateWasInCorner(State state) {
         Position[] corners = new Position[wasInThatCorner.length];
         for (int i = 1; i < corners.length; i++) {
-            corners[i] = getPositionByPlayerId(i, state.playerView.getMapSize());
+            corners[i] = getPositionByPlayerId(state.playerView.getMyId(), i, state.playerView.getMapSize());
         }
         for (Entity entity : state.myEntities) {
             for (int i = 1; i < corners.length; i++) {
@@ -277,7 +277,7 @@ public class GlobalStrategy {
 
     static boolean[] wasInThatCorner = new boolean[5];
 
-    private static Position getPositionByPlayerId(int playerId, int mapSize) {
+    private static Position getPositionByPlayerId1(int playerId, int mapSize) {
         return switch (playerId) {
             case 1 -> new Position(0, 0);
             case 2 -> new Position(mapSize - 1, mapSize - 1);
@@ -287,11 +287,54 @@ public class GlobalStrategy {
         };
     }
 
+
+    private static Position getPositionByPlayerId2(int playerId, int mapSize) {
+        return switch (playerId) {
+            case 1 -> new Position(mapSize - 1, mapSize - 1);
+            case 2 -> new Position(0, 0);
+            case 3 -> new Position(0, mapSize - 1);
+            case 4 -> new Position(mapSize - 1, 0);
+            default -> throw new IllegalStateException("Unexpected value: " + playerId);
+        };
+    }
+
+    private static Position getPositionByPlayerId3(int playerId, int mapSize) {
+        return switch (playerId) {
+            case 1 -> new Position(0, mapSize - 1);
+            case 2 -> new Position(mapSize - 1, 0);
+            case 3 -> new Position(0, 0);
+            case 4 -> new Position(mapSize - 1, mapSize - 1);
+            default -> throw new IllegalStateException("Unexpected value: " + playerId);
+        };
+    }
+
+    private static Position getPositionByPlayerId4(int playerId, int mapSize) {
+        return switch (playerId) {
+            case 1 -> new Position(mapSize - 1, 0);
+            case 2 -> new Position(0, mapSize - 1);
+            case 3 -> new Position(mapSize - 1, mapSize - 1);
+            case 4 -> new Position(0, 0);
+            default -> throw new IllegalStateException("Unexpected value: " + playerId);
+        };
+    }
+
+
+    private static Position getPositionByPlayerId(int myPlayerId, int playerId, int mapSize) {
+        return switch (myPlayerId) {
+            case 1 -> getPositionByPlayerId1(playerId, mapSize);
+            case 2 -> getPositionByPlayerId2(playerId, mapSize);
+            case 3 -> getPositionByPlayerId3(playerId, mapSize);
+            case 4 -> getPositionByPlayerId4(playerId, mapSize);
+            default -> throw new IllegalStateException("Unexpected value: " + playerId);
+        };
+    }
+
     Position whichPlayerToAttack() {
         Player[] players = state.playerView.getPlayers();
         final int mapSize = state.playerView.getMapSize();
         int bScore = 0;
         Player bPlayer = null;
+        final Position topRight = new Position(mapSize - 1, mapSize - 1);
         for (Player player : players) {
             if (player.getId() == state.playerView.getMyId()) {
                 continue;
@@ -300,7 +343,8 @@ public class GlobalStrategy {
                 continue;
             }
             int score = player.getScore();
-            if (player.getId() == 2) {
+            final Position targetPos = getPositionByPlayerId(state.playerView.getMyId(), player.getId(), mapSize);
+            if (targetPos.distTo(topRight) == 0) {
                 score /= 2;
             }
             if (score > bScore) {
@@ -309,9 +353,9 @@ public class GlobalStrategy {
             }
         }
         if (bPlayer == null) {
-            return new Position(mapSize - 1, mapSize - 1);
+            return topRight;
         }
-        return getPositionByPlayerId(bPlayer.getId(), mapSize);
+        return getPositionByPlayerId(state.playerView.getMyId(), bPlayer.getId(), mapSize);
     }
 
 }

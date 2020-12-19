@@ -20,6 +20,7 @@ public class PositionsPicker {
         if (whatToBuild == EntityType.BUILDER_UNIT) {
             possibleTargets = state.allResources;
         } else {
+            // TODO: do smarter things!
             possibleTargets = state.allEnemiesWarUnits;
         }
         int bestDist = Integer.MAX_VALUE;
@@ -30,6 +31,9 @@ public class PositionsPicker {
                 bestDist = dist;
                 bestTarget = target.getPosition();
             }
+        }
+        if (bestTarget == null) {
+            return state.globalStrategy.whichPlayerToAttack();
         }
         return bestTarget;
     }
