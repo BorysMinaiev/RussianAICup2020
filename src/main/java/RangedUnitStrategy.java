@@ -35,9 +35,9 @@ public class RangedUnitStrategy {
         state.doNothing(unit);
     }
 
-    private boolean goToPosition(final Entity unit, final Position goToPos) {
+    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist) {
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
-        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange);
+        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist);
         if (firstCellInPath != null) {
             state.addDebugTarget(unit.getPosition(), goToPos);
             if (state.isOccupiedByResource(firstCellInPath)) {
@@ -129,7 +129,7 @@ public class RangedUnitStrategy {
                 notAttackingOnCurrentTurn.remove(notAttackingOnCurrentTurn.size() - 1);
             }
             for (Entity unit : toProtect) {
-                if (!goToPosition(unit, targetPos)) {
+                if (!goToPosition(unit, targetPos, Integer.MAX_VALUE)) {
                     state.randomlyMoveAndAttack(unit);
                 }
             }
@@ -137,14 +137,16 @@ public class RangedUnitStrategy {
         for (Entity unit : notAttackingOnCurrentTurn) {
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
             if (closestEnemy != null) {
-                if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || state.inMyRegionOfMap(closestEnemy)) {
-                    if (goToPosition(unit, closestEnemy.getPosition())) {
+                boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
+                if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
+                    int maxDist = inMyRegion ? Integer.MAX_VALUE : (CLOSE_ENOUGH * 2);
+                    if (goToPosition(unit, closestEnemy.getPosition(), maxDist)) {
                         continue;
                     }
                 }
             }
             final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
-            if (!goToPosition(unit, globalTargetPos)) {
+            if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE)) {
                 blocked(unit);
             }
         }

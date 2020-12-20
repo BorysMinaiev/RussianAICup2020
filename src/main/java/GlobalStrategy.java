@@ -78,6 +78,10 @@ public class GlobalStrategy {
             return new ExpectedEntitiesDistribution(0, count.get(TURRET), count.get(RANGED_UNIT), count.get(MELEE_UNIT));
         }
 
+        ExpectedEntitiesDistribution noMoreRangedUnits() {
+            return new ExpectedEntitiesDistribution(count.get(BUILDER_UNIT), count.get(TURRET), 0, count.get(MELEE_UNIT));
+        }
+
         EntityType whatBuildingNeedToBuild(final EntityType unit) {
             return switch (unit) {
                 case WALL, HOUSE, BUILDER_BASE, MELEE_BASE, RANGED_BASE, RESOURCE, TURRET -> BUILDER_UNIT;
@@ -123,7 +127,7 @@ public class GlobalStrategy {
 
         static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
-        static ExpectedEntitiesDistribution V3 = new ExpectedEntitiesDistribution(40, 0, 9, 3);
+        static ExpectedEntitiesDistribution V3 = new ExpectedEntitiesDistribution(40, 0, 9, 0);
         static ExpectedEntitiesDistribution ONLY_BUILDERS = new ExpectedEntitiesDistribution(1, 0, 0, 0);
         static ExpectedEntitiesDistribution ALMOST_RANGED = new ExpectedEntitiesDistribution(1, 0, 2, 0);
 
@@ -131,6 +135,7 @@ public class GlobalStrategy {
     }
 
     final int MAX_BUILDERS = 50;
+    final int MAX_RANGED_UNITS = 40;
 
     private boolean needMoreBuilders() {
         return state.myEntitiesCount.get(BUILDER_UNIT) < 20 && state.playerView.getCurrentTick() < 100;
@@ -270,6 +275,9 @@ public class GlobalStrategy {
                 ExpectedEntitiesDistribution.V3;
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
+        }
+        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS) {
+            distribution = distribution.noMoreRangedUnits();
         }
         return distribution.chooseWhatToBuild(state);
         // TODO: make it smarter

@@ -688,12 +688,12 @@ public class MapHelper {
     /**
      * @return first cell in the path
      */
-    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells) {
+    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist) {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
         final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells);
-        QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler);
+        QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist);
         return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true);
     }
 

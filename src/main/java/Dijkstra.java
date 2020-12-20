@@ -73,7 +73,7 @@ public class Dijkstra {
             }
         }
 
-        Position getFirstPathOnPath(final Position startPos, final DijkstraHandler handler) {
+        Position getFirstPathOnPath(final Position startPos, final int maxDist) {
             if (firstCellOnPath.containsKey(startPos)) {
                 return firstCellOnPath.get(startPos);
             }
@@ -84,6 +84,9 @@ public class Dijkstra {
                 }
                 seen.add(vertex.pos);
                 visitNeighbours(vertex);
+                if (vertex.dist > maxDist) {
+                    return null;
+                }
                 if (vertex.pos.distTo(startPos) == 0) {
                     return firstCellOnPath.get(startPos);
                 }
@@ -111,7 +114,7 @@ public class Dijkstra {
     }
 
 
-    QueueDist findFirstCellOnPath(final Position startPos, final Position targetPos, final DijkstraHandler handler) {
+    QueueDist findFirstCellOnPath(final Position startPos, final Position targetPos, final DijkstraHandler handler, int maxDist) {
         // TODO: we need to check that handlers are the same to use cache?!
         if (startPos.distTo(targetPos) == 0) {
             return null;
@@ -121,7 +124,7 @@ public class Dijkstra {
             state = new State(targetPos, handler);
             statesByTargetPos.put(targetPos, state);
         }
-        state.getFirstPathOnPath(startPos, handler);
+        state.getFirstPathOnPath(startPos, maxDist);
         return state;
     }
 }
