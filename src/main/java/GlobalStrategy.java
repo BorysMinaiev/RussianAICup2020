@@ -276,11 +276,15 @@ public class GlobalStrategy {
         if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
             distribution = distribution.noMoreBuilders();
         }
-        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS) {
+        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {
             distribution = distribution.noMoreRangedUnits();
         }
         return distribution.chooseWhatToBuild(state);
         // TODO: make it smarter
+    }
+
+    private boolean muchResources() {
+        return state.playerView.getMyPlayer().getResource() > 500;
     }
 
     static boolean[] wasInThatCorner = new boolean[5];
