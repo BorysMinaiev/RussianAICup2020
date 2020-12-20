@@ -178,7 +178,7 @@ public class BuilderStrategy {
                 continue;
             }
             final Position pos = builder.getPosition();
-            if (state.map.underAttack[pos.getX()][pos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK) {
+            if (state.map.underAttack[pos.getX()][pos.getY()].isUnderAttack()) {
                 underAttack.add(builder);
             } else {
                 canBuildOrMineResources.add(builder);
@@ -306,7 +306,7 @@ public class BuilderStrategy {
         final MapHelper map = state.map;
         for (int dx = 0; dx < size; dx++) {
             for (int dy = 0; dy < size; dy++) {
-                if (map.underAttack[where.getX() + dx][where.getY() + dy] == MapHelper.UNDER_ATTACK.UNDER_ATTACK) {
+                if (map.underAttack[where.getX() + dx][where.getY() + dy].isUnderAttack()) {
                     return true;
                 }
             }

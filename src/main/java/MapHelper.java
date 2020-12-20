@@ -24,7 +24,14 @@ public class MapHelper {
     enum UNDER_ATTACK {
         SAFE,
         UNDER_ATTACK,
-        UNDER_ATTACK_DO_NOT_GO_THERE,
+        UNDER_ATTACK_DO_NOT_GO_THERE;
+
+        public boolean isUnderAttack() {
+            return switch (this) {
+                case SAFE -> false;
+                case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE -> true;
+            };
+        }
     }
 
     final CAN_GO_THROUGH[][] canGoThrough;
@@ -451,7 +458,7 @@ public class MapHelper {
             switch (underAttack) {
                 case SAFE:
                     break;
-                case UNDER_ATTACK:
+                case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE:
                     return false;
             }
             return switch (type) {
@@ -485,7 +492,7 @@ public class MapHelper {
             switch (underAttack) {
                 case SAFE:
                     break;
-                case UNDER_ATTACK:
+                case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE:
                     return false;
             }
             return switch (type) {
@@ -794,7 +801,7 @@ public class MapHelper {
             switch (underAttack) {
                 case SAFE:
                     break;
-                case UNDER_ATTACK:
+                case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE:
                     return false;
             }
             if (dist == 1) {
