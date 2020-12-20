@@ -91,7 +91,12 @@ public class MapHelper {
             return;
         }
         if (type == UNDER_ATTACK.UNDER_ATTACK) {
-            underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK;
+            if (underAttack[x][y] == UNDER_ATTACK.SAFE) {
+                underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK;
+            } else {
+                // if cell is under attack by more than one unit -> do not go there.
+                underAttack[x][y] = UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE;
+            }
         }
     }
 
