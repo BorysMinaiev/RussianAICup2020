@@ -49,6 +49,18 @@ public class BuilderStrategy {
         final Position where;
         final int occupiedCellsNearby;
         final int distToZero;
+        final int distToBuilder;
+
+        @Override
+        public String toString() {
+            return "BuildOption{" +
+                    "builder=" + builder +
+                    ", where=" + where +
+                    ", occupiedCellsNearby=" + occupiedCellsNearby +
+                    ", distToZero=" + distToZero +
+                    ", distToBuilder=" + distToBuilder +
+                    '}';
+        }
 
         List<Boolean> computeBuildingOrResourcesNearby(final State state, final EntityType what) {
             int buildingSize = state.getEntityTypeProperties(what).getSize();
@@ -72,20 +84,24 @@ public class BuilderStrategy {
             return occupiedCellsNearby;
         }
 
-        BuildOption(final State state, Entity builder, Position where, EntityType what) {
+        BuildOption(final State state, Entity builder, Position where, EntityType what, final int distToBuilder) {
             this.builder = builder;
             this.where = where;
             final List<Boolean> occupiedCellsNearby = computeBuildingOrResourcesNearby(state, what);
             this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
             final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
+            this.distToBuilder = distToBuilder;
         }
 
         @Override
         public int compareTo(BuildOption o) {
-            if (occupiedCellsNearby != o.occupiedCellsNearby) {
-                return Integer.compare(occupiedCellsNearby, o.occupiedCellsNearby);
+            if (distToBuilder != o.distToBuilder) {
+                return Integer.compare(distToBuilder, o.distToBuilder);
             }
+//            if (occupiedCellsNearby != o.occupiedCellsNearby) {
+//                return Integer.compare(occupiedCellsNearby, o.occupiedCellsNearby);
+//            }
             return Integer.compare(distToZero, o.distToZero);
         }
     }
@@ -144,9 +160,10 @@ public class BuilderStrategy {
             if (needMoreWorkers <= 0) {
                 continue;
             }
+            final int searchDistToRepair = searchDistToRepair(entity.getEntityType());
             final List<Position> initialPositions = allPositionsOfEntity(state, entity);
             MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
-                    MAX_DIST_TO_SEARCH_BUILDERS_FOR_REPAIR, needMoreWorkers);
+                    searchDistToRepair, needMoreWorkers);
             for (Map.Entry<Entity, Position> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
                 final Entity builder = entry.getKey();
                 final Position nextPos = entry.getValue();
@@ -157,15 +174,27 @@ public class BuilderStrategy {
         }
     }
 
-    private static List<Position> allPositionsOfEntity(final State state, final Entity entity) {
-        final int size = state.getEntityProperties(entity).getSize();
+    private static int searchDistToRepair(EntityType entityType) {
+        if (entityType == RANGED_BASE) {
+            return MAX_DIST_TO_SEARCH_BUILDERS_FOR_REPAIR * 3;
+        } else {
+            return MAX_DIST_TO_SEARCH_BUILDERS_FOR_REPAIR;
+        }
+    }
+
+    private static List<Position> allPositionsOfEntityType(final State state, final Position pos, final EntityType entityType) {
+        final int size = state.getEntityTypeProperties(entityType).getSize();
         List<Position> positions = new ArrayList<>();
         for (int dx = 0; dx < size; dx++) {
             for (int dy = 0; dy < size; dy++) {
-                positions.add(entity.getPosition().shift(dx, dy));
+                positions.add(pos.shift(dx, dy));
             }
         }
         return positions;
+    }
+
+    private static List<Position> allPositionsOfEntity(final State state, final Entity entity) {
+        return allPositionsOfEntityType(state, entity.getPosition(), entity.getEntityType());
     }
 
     static void makeMoveForAll(final State state) {
@@ -188,26 +217,9 @@ public class BuilderStrategy {
         EntityType toBuild = state.globalStrategy.whatNextToBuild();
         boolean needBuildSmth = toBuild != null && toBuild.isBuilding() && state.isEnoughResourcesToBuild(toBuild);
         if (needBuildSmth && !canBuildOrMineResources.isEmpty()) {
-            List<BuildOption> buildOptions = new ArrayList<>();
-            for (Entity builder : canBuildOrMineResources) {
-                List<Position> possiblePositions = state.findPossiblePositionToBuild(builder, toBuild);
-                for (Position where : possiblePositions) {
-                    if (where == null) {
-                        throw new AssertionError();
-                    }
-                    if (willBeUnderAttack(state, toBuild, where)) {
-                        continue;
-                    }
-                    BuildOption buildOption = new BuildOption(state, builder, where, toBuild);
-                    buildOptions.add(buildOption);
-                }
-            }
-            Collections.sort(buildOptions);
-            if (!buildOptions.isEmpty()) {
-                BuildOption option = buildOptions.get(0);
-                state.buildSomething(option.builder, toBuild, option.where);
-                markBuilderAsWorking(state, option.builder);
-                canBuildOrMineResources.remove(option.builder);
+            final Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild);
+            if (builder != null) {
+                canBuildOrMineResources.remove(builder);
             }
         }
         List<Entity> shouldGoMine = new ArrayList<>();
@@ -225,6 +237,96 @@ public class BuilderStrategy {
         }
         findPathsToResources(state, needPathToResources);
         state.decidedWhatToWithBuilders = true;
+    }
+
+    private static boolean isGoodPositionForHouse(Position pos) {
+        return pos.getX() % 4 == 2 && pos.getY() % 4 == 2;
+    }
+
+    private static List<Position> filterHousePositions(List<Position> allPossiblePositions) {
+        List<Position> filteredPositions = new ArrayList<>();
+        for (Position pos : allPossiblePositions) {
+            if (isGoodPositionForHouse(pos)) {
+                filteredPositions.add(pos);
+            }
+        }
+        return filteredPositions;
+    }
+
+    private static List<Position> filterRangedBasePosition(final State state, List<Position> allPossiblePositions) {
+        int curMaxSumCoord = 0;
+        for (Entity entity : state.myEntities) {
+            if (entity.getEntityType().isBuilding()) {
+                final Position curPos = entity.getPosition();
+                curMaxSumCoord = Math.max(curMaxSumCoord, curPos.getX() + curPos.getY());
+            }
+        }
+        List<Position> filteredPositions = new ArrayList<>();
+        for (Position pos : allPossiblePositions) {
+            if (pos.getX() + pos.getY() >= curMaxSumCoord) {
+                filteredPositions.add(pos);
+            }
+        }
+        return filteredPositions;
+    }
+
+    private static Entity closestBuilder(final State state, Position pos, EntityType what, List<Entity> builders) {
+        int bDist = Integer.MAX_VALUE;
+        Entity bBuilder = null;
+        for (Entity builder : builders) {
+            final Position builderPos = builder.getPosition();
+            int dist = CellsUtils.distBetweenEntityTypeAndPos(state, pos, what, builderPos.getX(), builderPos.getY());
+            if (dist < bDist) {
+                bDist = dist;
+                bBuilder = builder;
+            }
+        }
+        return bBuilder;
+    }
+
+    private static Entity tryToBuildSomething(State state, List<Entity> builders, EntityType what) {
+        List<BuildOption> buildOptions = new ArrayList<>();
+        List<Position> allPossiblePositions = state.findAllPossiblePositionsToBuild(what);
+        if (what == HOUSE) {
+            allPossiblePositions = filterHousePositions(allPossiblePositions);
+        } else if (what == RANGED_BASE) {
+            allPossiblePositions = filterRangedBasePosition(state, allPossiblePositions);
+        }
+        for (Position pos : allPossiblePositions) {
+            final Entity builder = closestBuilder(state, pos, what, builders);
+            if (builder == null) {
+                continue;
+            }
+            final Position builderPos = builder.getPosition();
+            final int distToBuilder = CellsUtils.distBetweenEntityTypeAndPos(state, pos, what, builderPos.getX(), builderPos.getY());
+            BuildOption buildOption = new BuildOption(state, builder, pos, what, distToBuilder);
+            buildOptions.add(buildOption);
+        }
+        Collections.sort(buildOptions);
+        for (BuildOption option : buildOptions) {
+            if (option.distToBuilder == 1) {
+                state.buildSomething(option.builder, what, option.where);
+                markBuilderAsWorking(state, option.builder);
+                return option.builder;
+            } else {
+                final List<Position> initialPositions = allPositionsOfEntityType(state, option.where, what);
+                // TODO: send more than one worker?
+                // TODO: optimize position by number of workers nearby
+                MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
+                        option.distToBuilder * 2, 1);
+                if (pathsForBuilders.firstCellsInPath.isEmpty()) {
+                    continue;
+                }
+                for (Map.Entry<Entity, Position> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
+                    final Entity builder = entry.getKey();
+                    final Position nextPos = entry.getValue();
+                    state.move(builder, nextPos);
+                    state.debugTargets.put(builder.getPosition(), option.where);
+                    return builder;
+                }
+            }
+        }
+        return null;
     }
 
     static long pathDistToWeight(int dist) {
@@ -301,17 +403,6 @@ public class BuilderStrategy {
         }
     }
 
-    private static boolean willBeUnderAttack(State state, EntityType toBuild, Position where) {
-        final int size = state.getEntityTypeProperties(toBuild).getSize();
-        final MapHelper map = state.map;
-        for (int dx = 0; dx < size; dx++) {
-            for (int dy = 0; dy < size; dy++) {
-                if (map.underAttack[where.getX() + dx][where.getY() + dy].isUnderAttack()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+
 }
 

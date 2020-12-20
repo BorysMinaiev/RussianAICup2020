@@ -350,20 +350,45 @@ public class State {
                 isSegIntersect(y, y + entitySize - 1, pos.getY(), pos.getY() + newObjSize - 1);
     }
 
-    private boolean canBuild(final Position pos, final EntityType type) {
-        if (pos.getX() < 0 || pos.getY() < 0) {
+    private boolean willBeUnderAttack(EntityType toBuild, Position where) {
+        final int size = getEntityTypeProperties(toBuild).getSize();
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                if (map.underAttack[where.getX() + dx][where.getY() + dy].isUnderAttack()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean canBuild(int x, int y, final EntityType type) {
+        if (x < 0 || y < 0) {
             return false;
         }
         int objSize = getEntityTypeProperties(type).getSize();
-        if (pos.getX() + objSize > playerView.getMapSize() || pos.getY() + objSize > playerView.getMapSize()) {
+        if (x + objSize > playerView.getMapSize() || y + objSize > playerView.getMapSize()) {
             return false;
         }
-        for (Entity entity : playerView.getEntities()) {
-            if (willIntersect(entity, pos, type)) {
-                return false;
+        for (int checkX = x; checkX < x + objSize; checkX++) {
+            for (int checkY = y; checkY < y + objSize; checkY++) {
+                Entity there = map.entitiesByPos[checkX][checkY];
+                if (there != null) {
+                    return false;
+                }
+                if (map.canGoThrough[x][y] == MapHelper.CAN_GO_THROUGH.UNKNOWN) {
+                    return false;
+                }
             }
         }
+        if (type.isBuilding() && willBeUnderAttack(type, new Position(x, y))) {
+            return false;
+        }
         return true;
+    }
+
+    private boolean canBuild(final Position pos, final EntityType type) {
+        return canBuild(pos.getX(), pos.getY(), type);
     }
 
     public List<Position> findPossiblePositionToBuild(final Entity who, final EntityType what) {
@@ -379,6 +404,19 @@ public class State {
             }
         }
         return positionsWhereCanBuild;
+    }
+
+    public List<Position> findAllPossiblePositionsToBuild(final EntityType what) {
+        List<Position> positions = new ArrayList<>();
+        final int whatSize = getEntityTypeProperties(what).getSize();
+        for (int x = 0; x + whatSize <= playerView.getMapSize(); x++) {
+            for (int y = 0; y + whatSize <= playerView.getMapSize(); y++) {
+                if (canBuild(x, y, what)) {
+                    positions.add(new Position(x, y));
+                }
+            }
+        }
+        return positions;
     }
 
     public boolean isEnoughResourcesToBuild(final EntityType what) {

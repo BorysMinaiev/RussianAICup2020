@@ -1,4 +1,5 @@
 import model.Entity;
+import model.EntityType;
 import model.Position;
 
 import java.util.ArrayList;
@@ -31,6 +32,12 @@ public class CellsUtils {
     public static int distBetweenEntityAndPos(final State state, final Entity first, int sx, int sy) {
         final int firstSize = state.getEntityProperties(first).getSize();
         final Position firstPos = first.getPosition();
+        return distOneCoord(firstPos.getX(), firstPos.getX() + firstSize - 1, sx, sx) +
+                distOneCoord(firstPos.getY(), firstPos.getY() + firstSize - 1, sy, sy);
+    }
+
+    public static int distBetweenEntityTypeAndPos(final State state, final Position firstPos, final EntityType firstType, int sx, int sy) {
+        final int firstSize = state.getEntityTypeProperties(firstType).getSize();
         return distOneCoord(firstPos.getX(), firstPos.getX() + firstSize - 1, sx, sx) +
                 distOneCoord(firstPos.getY(), firstPos.getY() + firstSize - 1, sy, sy);
     }
