@@ -29,8 +29,10 @@ public class MyStrategy {
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
         State state = new State(playerView, debugInterface);
         int myId = playerView.getMyId();
+        RangedUnitStrategy rangedUnitStrategy = new RangedUnitStrategy(state);
+        rangedUnitStrategy.makeMoveForAll();
+        state.globalStrategy.setNeedMoreRangedUnits(rangedUnitStrategy.needMoreUnitsForSupport);
         BuilderStrategy.makeMoveForAll(state);
-        new RangedUnitStrategy(state).makeMoveForAll();
         for (Entity entity : playerView.getEntities()) {
             if (entity.getPlayerId() == null || entity.getPlayerId() != myId) {
                 continue;
@@ -78,6 +80,7 @@ public class MyStrategy {
             return;
         }
         State state = new State(playerView, debugInterface);
+        state.globalStrategy.setNeedMoreRangedUnits(false);
         state.printSomeDebug(debugInterface, true);
     }
 }

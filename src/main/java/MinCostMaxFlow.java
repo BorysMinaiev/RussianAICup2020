@@ -40,6 +40,21 @@ class MinCostMaxFlow {
 
     }
 
+
+    static long pathDistToWeight(int dist) {
+        final int MAX_DIST = 10;
+        final int BASE = 10;
+        long res = 0;
+        for (int i = 0; i < MAX_DIST; i++) {
+            res = res * BASE;
+            if (dist >= i + 1) {
+                res++;
+            }
+        }
+        res = res * 1000 + dist;
+        return res;
+    }
+
     public MinCostMaxFlow(int n) {
         this.n = n;
         g = new ArrayList[n];

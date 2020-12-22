@@ -3,7 +3,9 @@ import model.EntityType;
 import model.Player;
 import model.Position;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static model.EntityType.*;
 
@@ -60,6 +62,14 @@ public class GlobalStrategy {
 
     private boolean needBuilderBase() {
         return state.myEntitiesCount.get(BUILDER_BASE) == 0;
+    }
+
+    boolean needMoreRangedUnits;
+    boolean needMoreRangedUnitsCalculated = false;
+
+    public void setNeedMoreRangedUnits(boolean needMoreRangedUnits) {
+        this.needMoreRangedUnitsCalculated = true;
+        this.needMoreRangedUnits = needMoreRangedUnits;
     }
 
     static class ExpectedEntitiesDistribution {
@@ -127,18 +137,21 @@ public class GlobalStrategy {
 
         static ExpectedEntitiesDistribution V1 = new ExpectedEntitiesDistribution(5, 1, 1, 0);
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
-        static ExpectedEntitiesDistribution V3 = new ExpectedEntitiesDistribution(40, 0, 9, 0);
+        static ExpectedEntitiesDistribution START_WITH_BUILDERS = new ExpectedEntitiesDistribution(4, 0, 1, 0);
+
+        static ExpectedEntitiesDistribution TWO_TO_ONE = new ExpectedEntitiesDistribution(2, 0, 1, 0);
         static ExpectedEntitiesDistribution ONLY_BUILDERS = new ExpectedEntitiesDistribution(1, 0, 0, 0);
         static ExpectedEntitiesDistribution ALMOST_RANGED = new ExpectedEntitiesDistribution(1, 0, 2, 0);
 
 
     }
 
-    final int MAX_BUILDERS = 50;
+    final int MAX_BUILDERS = 100;
     final int MAX_RANGED_UNITS = 40;
 
     private boolean needMoreBuilders() {
-        return state.myEntitiesCount.get(BUILDER_UNIT) < 20 && state.playerView.getCurrentTick() < 100;
+        final int buildersNum = state.myEntitiesCount.get(BUILDER_UNIT);
+        return buildersNum < 20 && state.playerView.getCurrentTick() < 100 || buildersNum < 5;
     }
 
     static class RequiresProtection implements Comparable<RequiresProtection> {
@@ -183,9 +196,9 @@ public class GlobalStrategy {
     }
 
     private boolean calculatedProtectSomething;
-    private ProtectSomething protectSomethingCache;
+    private EntityType protectSomethingCache;
 
-    public ProtectSomething needToProtectSomething() {
+    public EntityType needToProtectSomething() {
         if (!calculatedProtectSomething) {
             calculatedProtectSomething = true;
             protectSomethingCache = needToProtectSomethingWithoutCache();
@@ -193,37 +206,18 @@ public class GlobalStrategy {
         return protectSomethingCache;
     }
 
-    private ProtectSomething needToProtectSomethingWithoutCache() {
-        List<RequiresProtection> requiresProtections = new ArrayList<>();
-        for (EntityType buildingTypeToProtect : new EntityType[]{RANGED_BASE, MELEE_BASE, BUILDER_BASE}) {
-            List<Entity> buildings = state.myEntitiesByType.get(buildingTypeToProtect);
-            if (buildings.size() != 1) {
-                continue;
-            }
-            Entity buildingToProtect = buildings.get(0);
-            double dangerLevel = calcDangerLevel(buildingToProtect);
-            if (dangerLevel == 0) {
-                continue;
-            }
-            if (!state.map.existEnemyWarUnitsNearby(buildingToProtect, DIST_TO_CONSIDER_DANGER * 2)) {
-                // Can't go through trees
-                continue;
-            }
-            requiresProtections.add(new RequiresProtection(buildingToProtect, dangerLevel));
+    private EntityType needToProtectSomethingWithoutCache() {
+        if (!needMoreRangedUnitsCalculated) {
+            throw new AssertionError("Wrong order!");
         }
-        Collections.sort(requiresProtections);
-        if (requiresProtections.isEmpty()) {
+        if (state.myEntitiesByType.get(RANGED_BASE).isEmpty()) {
             return null;
         }
-        Entity building = requiresProtections.get(0).building;
-        Position target = PositionsPicker.getTarget(state, building, RANGED_UNIT);
-        if (!state.myEntitiesByType.get(RANGED_BASE).isEmpty()) {
-            return new ProtectSomething(RANGED_UNIT, target);
+        if (needMoreRangedUnits) {
+            return RANGED_UNIT;
+        } else {
+            return null;
         }
-        if (!state.myEntitiesByType.get(MELEE_BASE).isEmpty()) {
-            return new ProtectSomething(MELEE_UNIT, target);
-        }
-        return new ProtectSomething(null, target);
     }
 
 
@@ -253,10 +247,33 @@ public class GlobalStrategy {
         return state.playerView.getCurrentTick() * 2 > state.playerView.getMaxTickCount();
     }
 
+    boolean existBuilderUnderAttack() {
+        for (Entity builder : state.myEntitiesByType.get(BUILDER_UNIT)) {
+            final Position pos = builder.getPosition();
+            if (state.map.underAttack[pos.getX()][pos.getY()].isUnderAttack()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean shouldNotBuildMoreBuilders() {
+        if (lowResourcesInTotal()) {
+            return true;
+        }
+        if (existBuilderUnderAttack()) {
+            return true;
+        }
+        if (state.map.safePositionsToMine.size() < state.myEntitiesByType.get(RANGED_UNIT).size()) {
+            return false;
+        }
+        return state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS;
+    }
+
     EntityType whatNextToBuildWithoutCache() {
-        ProtectSomething toProtect = needToProtectSomething();
-        if (toProtect != null && toProtect.whatToBuild != null && hasEnoughHousesToBuildUnits()) {
-            return toProtect.whatToBuild;
+        EntityType toProtect = needToProtectSomething();
+        if (toProtect != null && hasEnoughHousesToBuildUnits()) {
+            return toProtect;
         }
         if (needRangedHouse() && state.playerView.getCurrentTick() > FIRST_TICK_FOR_RANGED_BASE) {
             return RANGED_BASE;
@@ -270,10 +287,19 @@ public class GlobalStrategy {
         if (needMoreBuilders()) {
             return BUILDER_UNIT;
         }
-        ExpectedEntitiesDistribution distribution = shouldBeAggressive() ?
-                ExpectedEntitiesDistribution.ALMOST_RANGED :
-                ExpectedEntitiesDistribution.V3;
-        if (state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS || lowResourcesInTotal()) {
+        final int buildersNum = state.myEntitiesByType.get(BUILDER_UNIT).size();
+        final int rangedNum = state.myEntitiesByType.get(RANGED_UNIT).size();
+
+        ExpectedEntitiesDistribution distribution;
+        if (buildersNum < 60) {
+            distribution = ExpectedEntitiesDistribution.START_WITH_BUILDERS;
+        } else {
+            distribution = ExpectedEntitiesDistribution.TWO_TO_ONE;
+        }
+//        if (stateshouldBeAggressive() ?
+//                ExpectedEntitiesDistribution.ALMOST_RANGED :
+//                ExpectedEntitiesDistribution.START_WITH_BUILDERS;
+        if (shouldNotBuildMoreBuilders()) {
             distribution = distribution.noMoreBuilders();
         }
         if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {

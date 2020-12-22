@@ -116,6 +116,7 @@ public class Dijkstra {
 
     QueueDist findFirstCellOnPath(final Position startPos, final Position targetPos, final DijkstraHandler handler, int maxDist) {
         // TODO: we need to check that handlers are the same to use cache?!
+        // TODO: ok go not go there is different
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }

@@ -6,9 +6,12 @@ import model.Position;
 import java.util.*;
 
 public class MapHelper {
+    private static final int RANGED_UNIT_RANGE_FOR_BUILDERS = 15;
     final Entity[][] entitiesByPos;
     final int[][] enemiesPrefSum;
+    final int[][] distToClosestEnemyRangedUnit;
     final State state;
+    final List<Position> safePositionsToMine;
 
     enum CAN_GO_THROUGH {
         EMPTY_CELL,
@@ -191,6 +194,60 @@ public class MapHelper {
         final int totalCells = size * size;
         this.bfs = new BfsQueue(totalCells);
         this.dijkstra = new Dijkstra(this);
+        this.distToClosestEnemyRangedUnit = computeDistToClosesEnemyRangedUnit();
+        this.safePositionsToMine = computeSafePositionsToMine();
+    }
+
+    private int[][] computeDistToClosesEnemyRangedUnit() {
+        final int mapSize = state.playerView.getMapSize();
+        int[][] dist = new int[mapSize][mapSize];
+        BfsQueue queue = findPathsToEnemyRangedUnits();
+        for (int x = 0; x < mapSize; x++) {
+            for (int y = 0; y < mapSize; y++) {
+                dist[x][y] = queue.getDist(x, y);
+            }
+        }
+        return dist;
+    }
+
+    public boolean isSafePositionToMine(int x, int y) {
+        if (entitiesByPos[x][y] != null) {
+            return false;
+        }
+        if (distToClosestEnemyRangedUnit[x][y] <= RANGED_UNIT_RANGE_FOR_BUILDERS) {
+            return false;
+        }
+        if (canGoThrough[x][y] == CAN_GO_THROUGH.UNKNOWN) {
+            return false;
+        }
+        int[] dx = Directions.dx;
+        int[] dy = Directions.dy;
+        for (int it = 0; it < dx.length; it++) {
+            int nx = x + dx[it];
+            int ny = y + dy[it];
+            if (!insideMap(nx, ny)) {
+                continue;
+            }
+            if (canMineThisCell(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<Position> computeSafePositionsToMine() {
+        List<Position> safePositions = new ArrayList<>();
+        final int mapSize = state.playerView.getMapSize();
+        for (int x = 0; x < mapSize; x++) {
+            for (int y = 0; y < mapSize; y++) {
+                if (!isSafePositionToMine(x, y)) {
+                    continue;
+                }
+
+                safePositions.add(new Position(x, y));
+            }
+        }
+        return safePositions;
     }
 
     public boolean insideMap(final int x, final int y) {
@@ -382,10 +439,12 @@ public class MapHelper {
         final Position startPos;
         int dist = -1;
         final int skipLastNCells;
+        final boolean okGoNotGoThere;
 
-        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells) {
+        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells, final boolean okGoNotGoThere) {
             this.startPos = startPos;
             this.skipLastNCells = skipLastNCells;
+            this.okGoNotGoThere = okGoNotGoThere;
         }
 
         @Override
@@ -395,7 +454,11 @@ public class MapHelper {
             }
             switch (underAttack) {
                 case UNDER_ATTACK_DO_NOT_GO_THERE:
-                    return false;
+                    if (okGoNotGoThere) {
+                        break;
+                    } else {
+                        return false;
+                    }
                 case SAFE, UNDER_ATTACK:
                     break;
             }
@@ -470,6 +533,18 @@ public class MapHelper {
                 case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
                 case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
+        }
+
+        @Override
+        public boolean shouldEnd(int x, int y, int dist) {
+            return false;
+        }
+    }
+
+    static class PathToEnemyUnitsBfsHandler implements BfsHandler {
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+            return true;
         }
 
         @Override
@@ -679,32 +754,14 @@ public class MapHelper {
         canGoThrough[pos.getX()][pos.getY()] = type;
     }
 
-    // TODO: remove??!!!
     /**
      * @return first cell in the path
      */
-    public Position findBestPathToTarget(final Position startPos, final Position targetPos, int skipLastNCells) {
+    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist, boolean okGoToNotGoThere) {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
-        final List<Position> initialPositions = new ArrayList<>();
-        initialPositions.add(targetPos);
-        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells);
-        bfs.run(initialPositions, handler);
-        if (!handler.foundPath()) {
-            return null;
-        }
-        return findFirstCellOnPath(startPos, targetPos, handler.dist, bfs, true);
-    }
-
-    /**
-     * @return first cell in the path
-     */
-    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist) {
-        if (startPos.distTo(targetPos) == 0) {
-            return null;
-        }
-        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells);
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere);
         QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist);
         return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true);
     }
@@ -736,6 +793,17 @@ public class MapHelper {
             initialPositions.add(resource.getPosition());
         }
         PathToResourcesBfsHandler handler = new PathToResourcesBfsHandler();
+        return findPathsToCells(initialPositions, handler);
+    }
+
+    public BfsQueue findPathsToEnemyRangedUnits() {
+        List<Position> initialPositions = new ArrayList<>();
+        for (Entity entity : state.allEnemiesWarUnits) {
+            if (entity.getEntityType() == EntityType.RANGED_UNIT) {
+                initialPositions.add(entity.getPosition());
+            }
+        }
+        PathToEnemyUnitsBfsHandler handler = new PathToEnemyUnitsBfsHandler();
         return findPathsToCells(initialPositions, handler);
     }
 

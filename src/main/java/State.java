@@ -27,6 +27,7 @@ public class State {
     final DebugInterface debugInterface;
     int debugPos = 30;
     final Map<Integer, Entity> entityById;
+    final NeedProtection needProtection;
 
     private int countTotalPopulation() {
         int population = 0;
@@ -265,6 +266,7 @@ public class State {
         this.map = new MapHelper(this);
         System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         defaultDoNothing();
+        this.needProtection = new NeedProtection(this);
     }
 
     private Map<Integer, Entity> computeEntityById() {
@@ -443,6 +445,9 @@ public class State {
         }
         if (!isEnoughResourcesToBuild(what)) {
             throw new AssertionError("Not enough money to build :(");
+        }
+        if (map.entitiesByPos[where.getX()][where.getY()] != null) {
+            throw new AssertionError("Build in a strange pos?");
         }
         setAction(who, EntityAction.createBuildAction(what, where));
     }

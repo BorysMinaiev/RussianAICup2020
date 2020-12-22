@@ -113,8 +113,8 @@ public class BuilderStrategy {
 
     static boolean mineRightNow(final State state, final Entity builder) {
         final Position pos = builder.getPosition();
-        int[] dx = new int[]{-1, 0, 0, 1};
-        int[] dy = new int[]{0, -1, 1, 0};
+        int[] dx = Directions.dx;
+        int[] dy = Directions.dy;
         for (int it = 0; it < dx.length; it++) {
             int nx = pos.getX() + dx[it];
             int ny = pos.getY() + dy[it];
@@ -329,19 +329,6 @@ public class BuilderStrategy {
         return null;
     }
 
-    static long pathDistToWeight(int dist) {
-        final int MAX_DIST = 10;
-        final int BASE = 10;
-        long res = 0;
-        for (int i = 0; i < MAX_DIST; i++) {
-            res = res * BASE;
-            if (dist >= i + 1) {
-                res++;
-            }
-        }
-        res = res * 1000 + dist;
-        return res;
-    }
 
     private static void findPathsToResources(final State state, final List<Entity> builders) {
         final int MAX_OPTIONS = 20;
@@ -366,7 +353,7 @@ public class BuilderStrategy {
             edges[i] = new MinCostMaxFlow.Edge[suggestions.size()];
             for (int j = 0; j < suggestions.size(); j++) {
                 final MapHelper.PathSuggestion suggestion = suggestions.get(j);
-                long weight = pathDistToWeight(suggestion.dist);
+                long weight = MinCostMaxFlow.pathDistToWeight(suggestion.dist);
                 int coordId = compressedCoords.get(suggestion.targetCell);
                 edges[i][j] = minCostMaxFlow.addEdge(1 + i, 1 + builders.size() + coordId, 1, weight);
             }

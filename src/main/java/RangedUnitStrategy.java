@@ -11,6 +11,7 @@ public class RangedUnitStrategy {
 
     final Map<Integer, Integer> expectedDamageByEntityId;
     final State state;
+    boolean needMoreUnitsForSupport;
 
     RangedUnitStrategy(final State state) {
         this.state = state;
@@ -35,9 +36,9 @@ public class RangedUnitStrategy {
         state.doNothing(unit);
     }
 
-    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist) {
+    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere) {
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
-        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist);
+        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist, okGoToNotGoThere);
         if (firstCellInPath != null) {
             state.addDebugTarget(unit.getPosition(), goToPos);
             if (state.isOccupiedByResource(firstCellInPath)) {
@@ -111,46 +112,92 @@ public class RangedUnitStrategy {
                 notAttackingOnCurrentTurn.add(unit);
             }
         }
-        GlobalStrategy.ProtectSomething protectSomething = state.globalStrategy.needToProtectSomething();
-        if (protectSomething != null) {
-            final Position targetPos = protectSomething.whereToGo;
-            notAttackingOnCurrentTurn.sort(new Comparator<Entity>() {
-                @Override
-                public int compare(Entity o1, Entity o2) {
-                    final int d1 = o1.getPosition().distTo(targetPos);
-                    final int d2 = o2.getPosition().distTo(targetPos);
-                    return -Integer.compare(d1, d2);
-                }
-            });
-            final int UNITS_TO_PROTECT = Math.min(10, notAttackingOnCurrentTurn.size());
-            final List<Entity> toProtect = new ArrayList<>();
-            for (int it = 0; it < UNITS_TO_PROTECT; it++) {
-                toProtect.add(notAttackingOnCurrentTurn.get(notAttackingOnCurrentTurn.size() - 1));
-                notAttackingOnCurrentTurn.remove(notAttackingOnCurrentTurn.size() - 1);
-            }
-            for (Entity unit : toProtect) {
-                if (!goToPosition(unit, targetPos, Integer.MAX_VALUE)) {
-                    state.randomlyMoveAndAttack(unit);
-                }
-            }
-        }
+        ProtectionsResult protectionsResult = handleProtections(notAttackingOnCurrentTurn);
+        notAttackingOnCurrentTurn = filterProtections(notAttackingOnCurrentTurn, protectionsResult.usedUnits);
+        needMoreUnitsForSupport = protectionsResult.needMoreSupport;
         for (Entity unit : notAttackingOnCurrentTurn) {
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
             if (closestEnemy != null) {
                 boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
                 if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
                     int maxDist = inMyRegion ? Integer.MAX_VALUE : (CLOSE_ENOUGH * 2);
-                    if (goToPosition(unit, closestEnemy.getPosition(), maxDist)) {
+                    if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false)) {
                         continue;
                     }
                 }
             }
             final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
-            if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE)) {
+            if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE, false)) {
                 blocked(unit);
             }
         }
         resolveEatingFoodPaths(allRangedUnits);
+    }
+
+    static private List<Entity> filterProtections(List<Entity> allUnits, Set<Entity> used) {
+        List<Entity> rest = new ArrayList<>();
+        for (Entity entity : allUnits) {
+            if (used.contains(entity)) {
+                continue;
+            }
+            rest.add(entity);
+        }
+        return rest;
+    }
+
+    static class ProtectionsResult {
+        final Set<Entity> usedUnits;
+        final boolean needMoreSupport;
+
+        public ProtectionsResult(Set<Entity> usedUnits, boolean needMoreSupport) {
+            this.usedUnits = usedUnits;
+            this.needMoreSupport = needMoreSupport;
+        }
+    }
+
+    /**
+     * @return used units
+     */
+    private ProtectionsResult handleProtections(List<Entity> myUnits) {
+        Set<Entity> used = new HashSet<>();
+        List<Entity> enemyUnits = new ArrayList<>(state.needProtection.enemiesToAttack);
+        MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + myUnits.size() + enemyUnits.size() + 1);
+        MinCostMaxFlow.Edge[][] edges = new MinCostMaxFlow.Edge[myUnits.size()][];
+        // TODO: optimize speed?
+        for (int i = 0; i < myUnits.size(); i++) {
+            minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
+            edges[i] = new MinCostMaxFlow.Edge[enemyUnits.size()];
+            for (int j = 0; j < enemyUnits.size(); j++) {
+                final int dist = enemyUnits.get(j).getPosition().distTo(myUnits.get(i).getPosition());
+                long weight = MinCostMaxFlow.pathDistToWeight(dist);
+                edges[i][j] = minCostMaxFlow.addEdge(1 + i, 1 + myUnits.size() + j, 1, weight);
+            }
+        }
+        // TODO: THINK ABOUT CAP = 2!!!
+        final int MY_UNITS_PER_ENEMY = 2;
+        for (int i = 0; i < enemyUnits.size(); i++) {
+            minCostMaxFlow.addEdge(1 + myUnits.size() + i, minCostMaxFlow.n - 1, MY_UNITS_PER_ENEMY, 0);
+        }
+        long flow = minCostMaxFlow.getMinCostMaxFlow(0, minCostMaxFlow.n - 1)[0];
+        for (int i = 0; i < myUnits.size(); i++) {
+            final Entity myUnit = myUnits.get(i);
+            for (int j = 0; j < edges[i].length; j++) {
+                final MinCostMaxFlow.Edge edge = edges[i][j];
+                if (edge.flow > 0) {
+                    final Position targetCell = enemyUnits.get(j).getPosition();
+                    // TODO: MAX_VALUE, STAY?
+                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true)) {
+                        blocked(myUnit);
+                    }
+                    used.add(myUnit);
+                    if (state.debugInterface != null) {
+                        state.debugTargets.put(myUnit.getPosition(), targetCell);
+                    }
+                    break;
+                }
+            }
+        }
+        return new ProtectionsResult(used, flow < MY_UNITS_PER_ENEMY * enemyUnits.size());
     }
 
     final int CLOSE_ENOUGH = 20;

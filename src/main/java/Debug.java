@@ -167,6 +167,37 @@ public class Debug {
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.TRIANGLES)));
     }
 
+    private static void showSafePlacesToMine(final State state, final DebugInterface debugInterface) {
+        final MapHelper map = state.map;
+        List<Vec2Float> points = new ArrayList<>();
+        for (Position pos : map.safePositionsToMine) {
+            addCellBorderToPoint(pos, points);
+        }
+
+        ColoredVertex[] vertices = convertVerticesToList(points, Color.YELLOW);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+
+        final String dbgMessage = "Safe pos to mine: " + map.safePositionsToMine.size() + "/" + state.myEntitiesByType.get(EntityType.BUILDER_UNIT).size();
+        printDebugText(state, debugInterface, dbgMessage, Color.GREEN);
+    }
+
+    private static void showNeedsProtection(final State state, final DebugInterface debugInterface) {
+        List<Vec2Float> points = new ArrayList<>();
+        for (NeedProtection.ToPretect toProtect : state.needProtection.toProtect) {
+            final Entity entity = toProtect.entity;
+            final Position pos = entity.getPosition();
+            final int size = state.getEntityProperties(entity).getSize();
+            addRectBorderToPoint(pos, pos.shift(size, size), points);
+
+        }
+        for (Entity enemy : state.needProtection.enemiesToAttack) {
+            addCellBorderToPoint(enemy.getPosition(), points);
+        }
+
+        ColoredVertex[] vertices = convertVerticesToList(points, Color.ORANGE);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+    }
+
     private static void showTargets(final State state, final DebugInterface debugInterface) {
         final List<Vec2Float> linePoints = new ArrayList<>();
         for (Map.Entry<Position, Position> entry : state.debugTargets.entrySet()) {
@@ -178,19 +209,29 @@ public class Debug {
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
     }
 
+    private static void addRectBorderToPoint(final Position bottomLeft, final Position topRight, final List<Vec2Float> points) {
+        final int x1 = bottomLeft.getX();
+        final int y1 = bottomLeft.getY();
+        final int x2 = topRight.getX();
+        final int y2 = topRight.getY();
+        points.add(new Vec2Float(x1, y1));
+        points.add(new Vec2Float(x1, y2));
+        points.add(new Vec2Float(x1, y2));
+        points.add(new Vec2Float(x2, y2));
+        points.add(new Vec2Float(x2, y2));
+        points.add(new Vec2Float(x2, y1));
+        points.add(new Vec2Float(x2, y1));
+        points.add(new Vec2Float(x1, y1));
+    }
+
+    private static void addCellBorderToPoint(final Position pos, final List<Vec2Float> points) {
+        addRectBorderToPoint(pos, pos.shift(1, 1), points);
+    }
+
     private static void showBadUnits(final State state, final DebugInterface debugInterface) {
         List<Vec2Float> points = new ArrayList<>();
         for (Position pos : state.debugUnitsInBadPostion) {
-            final int x = pos.getX();
-            final int y = pos.getY();
-            points.add(new Vec2Float(x, y));
-            points.add(new Vec2Float(x, y + 1));
-            points.add(new Vec2Float(x, y + 1));
-            points.add(new Vec2Float(x + 1, y + 1));
-            points.add(new Vec2Float(x + 1, y + 1));
-            points.add(new Vec2Float(x + 1, y));
-            points.add(new Vec2Float(x + 1, y));
-            points.add(new Vec2Float(x, y));
+            addCellBorderToPoint(pos, points);
         }
         ColoredVertex[] vertices = convertVerticesToList(points, Color.RED);
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
@@ -207,12 +248,15 @@ public class Debug {
         printEntitiesStat(state, debugInterface);
         printCurrentBuildTarget(state, debugInterface);
         printTotalResourcesLeft(state, debugInterface);
+        if (isBetweenTicks) {
+            showUnderAttackMap(state, debugInterface);
+            showSafePlacesToMine(state, debugInterface);
+            showNeedsProtection(state, debugInterface);
+        }
         printBuildActions(state, debugInterface);
         showTargets(state, debugInterface);
         showBadUnits(state, debugInterface);
-        if (isBetweenTicks) {
-            showUnderAttackMap(state, debugInterface);
-        }
+
 
         debugInterface.send(new DebugCommand.Flush());
     }
