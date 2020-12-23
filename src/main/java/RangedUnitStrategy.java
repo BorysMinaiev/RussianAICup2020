@@ -40,9 +40,22 @@ public class RangedUnitStrategy {
         state.doNothing(unit);
     }
 
-    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoThroughMyBuilders, int priority) {
+    private boolean goToPosition(final Entity unit,
+                                 final Position goToPos,
+                                 int maxDist,
+                                 boolean okGoToNotGoThere,
+                                 boolean okGoThroughMyBuilders,
+                                 boolean okGoUnderAttack,
+                                 int priority) {
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
-        List<Position> firstCellsInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist, okGoToNotGoThere, okGoThroughMyBuilders, true);
+        List<Position> firstCellsInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(),
+                goToPos,
+                attackRange,
+                maxDist,
+                okGoToNotGoThere,
+                okGoThroughMyBuilders,
+                okGoUnderAttack,
+                true);
         if (firstCellsInPath.isEmpty()) {
             return false;
         }
@@ -57,11 +70,11 @@ public class RangedUnitStrategy {
         return true;
     }
 
-    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere) {
-        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, false, MovesPicker.PRIORITY_GO_FOR_ATTACK)) {
+    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoUnderAttack) {
+        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, false, okGoUnderAttack, MovesPicker.PRIORITY_GO_FOR_ATTACK)) {
             return true;
         }
-        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, true, MovesPicker.PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS)) {
+        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, true, okGoUnderAttack, MovesPicker.PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS)) {
             return true;
         }
         return false;
@@ -102,11 +115,11 @@ public class RangedUnitStrategy {
     }
 
     void makeMoveForAll() {
-        // TODO: do we need to protect something?
         final List<Entity> allRangedUnits = state.myEntitiesByType.get(EntityType.RANGED_UNIT);
         final int attackRange = state.getEntityTypeProperties(EntityType.RANGED_UNIT).getAttack().getAttackRange();
         List<Entity> notAttackingOnCurrentTurn = new ArrayList<>();
         for (Entity unit : allRangedUnits) {
+            // TODO: attack units closer to my builders
             List<Entity> toAttack = state.map.getEntitiesToAttack(unit.getPosition(), attackRange);
             Entity bestEntityToAttack = null;
             int smallestHealth = Integer.MAX_VALUE;
@@ -130,19 +143,37 @@ public class RangedUnitStrategy {
         notAttackingOnCurrentTurn = filterProtections(notAttackingOnCurrentTurn, protectionsResult.usedUnits);
         needMoreUnitsForSupport = protectionsResult.needMoreSupport;
         for (Entity unit : notAttackingOnCurrentTurn) {
+            SpecialAgents.Profile specialAgentProfile = SpecialAgents.getSpecialAgentProfile(state, unit);
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
-            if (closestEnemy != null) {
-                boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
-                if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
-                    int maxDist = inMyRegion ? Integer.MAX_VALUE : (CLOSE_ENOUGH * 2);
-                    if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false)) {
-                        continue;
+            if (specialAgentProfile != null) {
+                if (closestEnemy != null) {
+                    if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH && closestEnemy.getEntityType() == EntityType.BUILDER_UNIT) {
+                        int maxDist = CLOSE_ENOUGH * 2;
+                        if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, false)) {
+                            continue;
+                        }
                     }
                 }
-            }
-            final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
-            if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE, false)) {
-                blocked(unit);
+                if (specialAgentProfile.shouldUpdateMission(unit)) {
+                    specialAgentProfile.updateMission(state);
+                }
+                if (!goToPosition(unit, specialAgentProfile.currentTarget, Integer.MAX_VALUE, false, false)) {
+                    specialAgentProfile.updateMission(state);
+                }
+            } else {
+                if (closestEnemy != null) {
+                    boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
+                    if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
+                        int maxDist = inMyRegion ? Integer.MAX_VALUE : (CLOSE_ENOUGH * 2);
+                        if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, true)) {
+                            continue;
+                        }
+                    }
+                }
+                final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
+                if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE, false, true)) {
+                    blocked(unit);
+                }
             }
         }
         resolveEatingFoodPaths(allRangedUnits);
@@ -179,6 +210,11 @@ public class RangedUnitStrategy {
         MinCostMaxFlow.Edge[][] edges = new MinCostMaxFlow.Edge[myUnits.size()][];
         // TODO: optimize speed?
         for (int i = 0; i < myUnits.size(); i++) {
+            Entity unit = myUnits.get(i);
+            SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, unit);
+            if (profile != null) {
+                continue;
+            }
             minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
             edges[i] = new MinCostMaxFlow.Edge[enemyUnits.size()];
             for (int j = 0; j < enemyUnits.size(); j++) {
@@ -195,12 +231,15 @@ public class RangedUnitStrategy {
         long flow = minCostMaxFlow.getMinCostMaxFlow(0, minCostMaxFlow.n - 1)[0];
         for (int i = 0; i < myUnits.size(); i++) {
             final Entity myUnit = myUnits.get(i);
+            if (edges[i] == null) {
+                continue;
+            }
             for (int j = 0; j < edges[i].length; j++) {
                 final MinCostMaxFlow.Edge edge = edges[i][j];
                 if (edge.flow > 0) {
                     final Position targetCell = enemyUnits.get(j).getPosition();
                     // TODO: MAX_VALUE, STAY?
-                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
+                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
                         blocked(myUnit);
                     }
                     used.add(myUnit);

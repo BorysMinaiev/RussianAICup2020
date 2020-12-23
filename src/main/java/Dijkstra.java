@@ -14,6 +14,8 @@ public class Dijkstra {
 
         boolean isOkGoThroughMyBuilders();
 
+        boolean isOkGoUnderAttack();
+
         boolean isOkEatFood();
 
         int getSkipLastNCells();
@@ -118,16 +120,19 @@ public class Dijkstra {
         final Position targetPos;
         final boolean okGoNotGoThere;
         final boolean okGoThroughBuilders;
+        final boolean okGoUnderAttack;
         final boolean okEatFood;
         final int skipLastNCells;
 
-        public DijkstraProperties(Position targetPos, boolean okGoNotGoThere, boolean okGoThroughBuilders, final int skipLastNCells, final boolean okEatFood) {
+        public DijkstraProperties(Position targetPos, boolean okGoNotGoThere, boolean okGoThroughBuilders, boolean okGoUnderAttack, final int skipLastNCells, final boolean okEatFood) {
             this.targetPos = targetPos;
             this.okGoNotGoThere = okGoNotGoThere;
             this.okGoThroughBuilders = okGoThroughBuilders;
+            this.okGoUnderAttack = okGoUnderAttack;
             this.skipLastNCells = skipLastNCells;
             this.okEatFood = okEatFood;
         }
+
 
         @Override
         public boolean equals(Object o) {
@@ -136,6 +141,7 @@ public class Dijkstra {
             DijkstraProperties that = (DijkstraProperties) o;
             return okGoNotGoThere == that.okGoNotGoThere &&
                     okGoThroughBuilders == that.okGoThroughBuilders &&
+                    okGoUnderAttack == that.okGoUnderAttack &&
                     okEatFood == that.okEatFood &&
                     skipLastNCells == that.skipLastNCells &&
                     Objects.equals(targetPos, that.targetPos);
@@ -143,7 +149,7 @@ public class Dijkstra {
 
         @Override
         public int hashCode() {
-            return Objects.hash(targetPos, okGoNotGoThere, okGoThroughBuilders, okEatFood, skipLastNCells);
+            return Objects.hash(targetPos, okGoNotGoThere, okGoThroughBuilders, okGoUnderAttack, okEatFood, skipLastNCells);
         }
     }
 
@@ -162,6 +168,7 @@ public class Dijkstra {
         DijkstraProperties properties = new DijkstraProperties(targetPos,
                 handler.isOkGoNotGoThere(),
                 handler.isOkGoThroughMyBuilders(),
+                handler.isOkGoUnderAttack(),
                 handler.getSkipLastNCells(),
                 handler.isOkEatFood());
         State state = statesByProperties.get(properties);

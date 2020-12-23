@@ -441,6 +441,7 @@ public class MapHelper {
         final int skipLastNCells;
         final boolean okGoNotGoThere;
         final boolean okGoThroughMyBuilders;
+        final boolean okGoUnderAttack;
         final boolean okEatFood;
 
         public boolean isOkGoNotGoThere() {
@@ -449,6 +450,11 @@ public class MapHelper {
 
         public boolean isOkGoThroughMyBuilders() {
             return okGoThroughMyBuilders;
+        }
+
+        @Override
+        public boolean isOkGoUnderAttack() {
+            return okGoUnderAttack;
         }
 
         public boolean isOkEatFood() {
@@ -460,11 +466,17 @@ public class MapHelper {
             return skipLastNCells;
         }
 
-        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells, final boolean okGoNotGoThere, final boolean okGoThroughMyBuilders, final boolean okEatFood) {
+        PathToTargetBfsHandler(final Position startPos,
+                               final int skipLastNCells,
+                               final boolean okGoNotGoThere,
+                               final boolean okGoThroughMyBuilders,
+                               final boolean okGoUnderAttack,
+                               final boolean okEatFood) {
             this.startPos = startPos;
             this.skipLastNCells = skipLastNCells;
             this.okGoNotGoThere = okGoNotGoThere;
             this.okGoThroughMyBuilders = okGoThroughMyBuilders;
+            this.okGoUnderAttack = okGoUnderAttack;
             this.okEatFood = okEatFood;
         }
 
@@ -480,7 +492,13 @@ public class MapHelper {
                     } else {
                         return false;
                     }
-                case SAFE, UNDER_ATTACK:
+                case UNDER_ATTACK:
+                    if (okGoUnderAttack) {
+                        break;
+                    } else {
+                        return false;
+                    }
+                case SAFE:
                     break;
             }
             return switch (type) {
@@ -800,11 +818,18 @@ public class MapHelper {
     /**
      * @return first cell in the path
      */
-    public List<Position> findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist, boolean okGoToNotGoThere, boolean okGoThroughMyBuilders, boolean okEatFood) {
+    public List<Position> findBestPathToTargetDijkstra(final Position startPos,
+                                                       final Position targetPos,
+                                                       int skipLastNCells,
+                                                       int maxDist,
+                                                       boolean okGoToNotGoThere,
+                                                       boolean okGoThroughMyBuilders,
+                                                       boolean okGoUnderAttack,
+                                                       boolean okEatFood) {
         if (startPos.distTo(targetPos) == 0) {
-            return null;
+            return new ArrayList<>();
         }
-        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere, okGoThroughMyBuilders, okEatFood);
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere, okGoThroughMyBuilders, okGoUnderAttack, okEatFood);
         QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist);
         return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true, okGoThroughMyBuilders);
     }

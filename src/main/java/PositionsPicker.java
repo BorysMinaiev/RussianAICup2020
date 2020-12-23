@@ -3,7 +3,6 @@ import model.EntityType;
 import model.Position;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class PositionsPicker {
@@ -67,7 +66,7 @@ public class PositionsPicker {
     static List<PositionWithScore> pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
         List<Position> unitPositions = state.findPossiblePositionToBuild(who, what);
         if (unitPositions.isEmpty()) {
-            return null;
+            return new ArrayList<>();
         }
         Position target = getTarget(state, who, what);
 

@@ -313,6 +313,35 @@ public class Debug {
         }
     }
 
+    private static Vec2Float toV2float(Position pos) {
+        return new Vec2Float(pos.getX(), pos.getY());
+    }
+
+    // TODO: remove it?
+    private static void highlightSpecialAgent(List<Vec2Float> points, Position pos) {
+        float x = pos.getX(), y = pos.getY();
+        points.add(new Vec2Float(x - 0.5f, y + 0.5f));
+        points.add(new Vec2Float(x + 0.5f, y + 1.5f));
+        points.add(new Vec2Float(x + 1.5f, y + 0.5f));
+        points.add(new Vec2Float(x + 0.5f, y - 0.5f));
+    }
+
+    private static void showSpecialAgents(final State state, final DebugInterface debugInterface) {
+        List<Vec2Float> linePoints = new ArrayList<>();
+        for (Entity entity : state.myEntities) {
+            SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, entity);
+            if (profile == null) {
+                continue;
+            }
+            final Position targetPos = profile.currentTarget;
+            drawArrow(linePoints, toV2float(entity.getPosition()), toV2float(targetPos));
+//            highlightSpecialAgent(linePoints, entity.getPosition());
+        }
+
+        ColoredVertex[] vertices = convertVerticesToList(linePoints, Color.MAGENTA);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+    }
+
     public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks, Action action) {
         if (debugInterface == null) {
             return;
@@ -335,6 +364,7 @@ public class Debug {
         showTargets(state, debugInterface);
         showBadUnits(state, debugInterface);
         showActions(state, debugInterface, action);
+        showSpecialAgents(state, debugInterface);
 
         debugInterface.send(new DebugCommand.Flush());
     }

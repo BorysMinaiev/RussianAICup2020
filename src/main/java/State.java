@@ -6,7 +6,7 @@ public class State {
     boolean decidedWhatToWithBuilders = false;
     final MovesPicker movesPicker;
     final PlayerView playerView;
-    final Random rnd;
+    final static Random rnd = new Random(787788);
     final List<Entity> myEntities;
     final List<Entity> allEnemiesWarUnits;
     final Map<EntityType, List<Entity>> myEntitiesByType;
@@ -247,7 +247,6 @@ public class State {
         this.myEntities = computeMyEntities();
         this.allEnemiesWarUnits = computeAllEnemiesWarUnits();
         this.myEntitiesByType = computeMyEntitiesByType();
-        this.rnd = new Random(123 + playerView.getCurrentTick());
         this.populationUsed = countUsedPopulation();
         this.populationTotal = countTotalPopulation();
         this.populationExpected = countExpectedPopulation();
