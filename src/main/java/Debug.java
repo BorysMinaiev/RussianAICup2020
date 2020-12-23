@@ -10,6 +10,7 @@ public class Debug {
     public static final boolean ENTITIES_STAT = true;
     public static final boolean PRINT_CURRENT_BUILD_TARGET = true;
     public static final boolean PRINT_BUILD_ACTIONS = true;
+    public static final boolean PRINT_MOVES_PICKER = false;
 
     private static void printAttackedBy(final State state, final DebugInterface debugInterface) {
         if (!Debug.ATTACKED_BY) {
@@ -105,14 +106,15 @@ public class Debug {
 
     private static List<EntityType> getAllBuildActions(final State state) {
         List<EntityType> buildActions = new ArrayList<>();
-        for (Map.Entry<Integer, EntityAction> entry : state.actions.getEntityActions().entrySet()) {
-            EntityAction action = entry.getValue();
-            BuildAction buildAction = action.getBuildAction();
-            if (buildAction == null) {
-                continue;
-            }
-            buildActions.add(buildAction.getEntityType());
-        }
+        // TODO: fix this
+//        for (Map.Entry<Integer, EntityAction> entry : state.actions.getEntityActions().entrySet()) {
+//            EntityAction action = entry.getValue();
+//            BuildAction buildAction = action.getBuildAction();
+//            if (buildAction == null) {
+//                continue;
+//            }
+//            buildActions.add(buildAction.getEntityType());
+//        }
         return buildActions;
     }
 
@@ -237,7 +239,81 @@ public class Debug {
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
     }
 
-    public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks) {
+    private static void drawArrow(final List<Vec2Float> points, Vec2Float from, Vec2Float to) {
+        points.add(from);
+        points.add(to);
+        double dx = to.getX() - from.getX();
+        double dy = to.getY() - from.getY();
+        double dist = Math.sqrt(dx * dx + dy * dy);
+        dist *= 5;
+        dx /= dist;
+        dy /= dist;
+        Vec2Float O = to.shift(-dx, -dy);
+        Vec2Float A = O.shift(dy / 2, -dx / 2);
+        Vec2Float B = O.shift(-dy / 2, dx / 2);
+        points.add(A);
+        points.add(to);
+        points.add(B);
+        points.add(to);
+    }
+
+    private static void showActions(final State state, final DebugInterface debugInterface, Action action) {
+        if (action == null) {
+            return;
+        }
+        if (!PRINT_MOVES_PICKER) {
+            return;
+        }
+        final List<Vec2Float> linePoints = new ArrayList<>();
+        for (Map.Entry<Integer, EntityAction> entry : action.getEntityActions().entrySet()) {
+            Entity entity = state.getEntityById(entry.getKey());
+            EntityAction entityAction = entry.getValue();
+            Position targetPos = null;
+            MoveAction moveAction = entityAction.getMoveAction();
+            if (moveAction != null) {
+                targetPos = moveAction.getTarget();
+            }
+            AttackAction attackAction = entityAction.getAttackAction();
+            if (attackAction != null) {
+                Integer targetId = attackAction.getTarget();
+                if (targetId != null) {
+                    targetPos = state.getEntityById(targetId).getPosition();
+                }
+            }
+            if (targetPos != null) {
+                Position from = entity.getPosition();
+                drawArrow(linePoints, new Vec2Float(from.getX() + 0.5f, from.getY() + 0.5f),
+                        new Vec2Float(targetPos.getX() + 0.5f, targetPos.getY() + 0.5f));
+            }
+        }
+        ColoredVertex[] vertices = convertVerticesToList(linePoints, Color.PURPLE);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+    }
+
+    private static void showMovesPicker(final State state, final DebugInterface debugInterface) {
+        if (!PRINT_MOVES_PICKER) {
+            return;
+        }
+        for (Map.Entry<Entity, MovesPicker.Move> entry : state.movesPicker.movesByEntity.entrySet()) {
+            final Position pos = entry.getKey().getPosition();
+            int movePriority = entry.getValue().priority;
+            ColoredVertex location = new ColoredVertex(new Vec2Float(pos.getX() + 0.2f, pos.getY() + 0.6f), Color.RED);
+            debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, "" + movePriority, 0.0f, 22.0f)));
+        }
+        for (Map.Entry<Entity, List<MovesPicker.Move>> entry : state.movesPicker.possibilities.entrySet()) {
+            final Position pos = entry.getKey().getPosition();
+            for (MovesPicker.Move move : entry.getValue()) {
+                int movePriority = move.priority;
+                float alpha = 0.7f;
+                float x = 0.5f + pos.getX() * alpha + move.targetPos.getX() * (1 - alpha);
+                float y = 0.5f + pos.getY() * alpha + move.targetPos.getY() * (1 - alpha);
+                ColoredVertex location = new ColoredVertex(new Vec2Float(x, y), Color.GREEN);
+                debugInterface.send(new DebugCommand.Add(new DebugData.PlacedText(location, movePriority + "/" + move.priorityRelativeToTargetCell, 0.5f, 22.0f)));
+            }
+        }
+    }
+
+    public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks, Action action) {
         if (debugInterface == null) {
             return;
         }
@@ -252,11 +328,13 @@ public class Debug {
             showUnderAttackMap(state, debugInterface);
             showSafePlacesToMine(state, debugInterface);
             showNeedsProtection(state, debugInterface);
+        } else {
+            showMovesPicker(state, debugInterface);
         }
         printBuildActions(state, debugInterface);
         showTargets(state, debugInterface);
         showBadUnits(state, debugInterface);
-
+        showActions(state, debugInterface, action);
 
         debugInterface.send(new DebugCommand.Flush());
     }

@@ -22,12 +22,13 @@ public class RangedUnitStrategy {
         state.map.updateCellCanGoThrough(who.getPosition(), MapHelper.CAN_GO_THROUGH.MY_ATTACKING_UNIT);
         final int damage = state.getEntityProperties(who).getAttack().getDamage();
         expectedDamageByEntityId.put(what.getId(), expectedDamageByEntityId.getOrDefault(what.getId(), 0) + damage);
-        state.attack(who, what);
+        state.attack(who, what, MovesPicker.PRIORITY_ATTACK);
     }
 
     private void eat(final Entity unit, final Position pos) {
-        state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()]);
-        state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_UNIT);
+        // TODO: different mine priority?
+        state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()], MovesPicker.PRIORITY_ATTACK);
+        state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT);
     }
 
     private void blocked(final Entity unit) {
@@ -36,23 +37,40 @@ public class RangedUnitStrategy {
         state.doNothing(unit);
     }
 
-    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere) {
+    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoThroughMyBuilders, int priority) {
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
-        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist, okGoToNotGoThere);
-        if (firstCellInPath != null) {
-            state.addDebugTarget(unit.getPosition(), goToPos);
+        List<Position> firstCellsInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, attackRange, maxDist, okGoToNotGoThere, okGoThroughMyBuilders, true);
+        if (firstCellsInPath.isEmpty()) {
+            return false;
+        }
+        state.addDebugTarget(unit.getPosition(), goToPos);
+        for (Position firstCellInPath : firstCellsInPath) {
             if (state.isOccupiedByResource(firstCellInPath)) {
                 eat(unit, firstCellInPath);
             } else {
-                state.move(unit, firstCellInPath);
+                state.move(unit, firstCellInPath, priority);
             }
+        }
+        return true;
+    }
+
+    private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere) {
+        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, false, MovesPicker.PRIORITY_GO_FOR_ATTACK)) {
+            return true;
+        }
+        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, true, MovesPicker.PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS)) {
             return true;
         }
         return false;
     }
 
     void resolveEatingFoodPaths(final List<Entity> units) {
+        int resolveIt = 0;
         while (true) {
+            if (resolveIt++ > 10) {
+                System.err.println("VERY STRANGE: Can't resolve food path fast");
+                break;
+            }
             boolean changed = false;
             for (Entity unit : units) {
                 EntityAction action = state.getUnitAction(unit);
@@ -64,20 +82,22 @@ public class RangedUnitStrategy {
                     continue;
                 }
                 final Position movePos = moveAction.getTarget();
-                if (state.map.canGoThrough[movePos.getX()][movePos.getY()] == MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_UNIT) {
-                    changed = true;
+                if (state.map.canGoThrough[movePos.getX()][movePos.getY()] == MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT) {
                     final Entity who = state.map.entitiesByPos[movePos.getX()][movePos.getY()];
                     final EntityAction hisAction = state.getUnitAction(who);
                     final AttackAction attackAction = hisAction.getAttackAction();
                     if (attackAction == null) {
-                        throw new AssertionError("Eat food, but not attack?");
-                    }
-                    final Entity resource = state.getEntityById(attackAction.getTarget());
-                    final Position foodPos = resource.getPosition();
-                    if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
-                        eat(unit, resource.getPosition());
-                    } else {
+                        System.err.println("Eat food, but not attack?");
                         blocked(unit);
+                    } else {
+                        final Entity resource = state.getEntityById(attackAction.getTarget());
+                        final Position foodPos = resource.getPosition();
+                        if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
+                            changed = true;
+                            eat(unit, resource.getPosition());
+                        } else {
+                            blocked(unit);
+                        }
                     }
                 }
             }
@@ -186,7 +206,7 @@ public class RangedUnitStrategy {
                 if (edge.flow > 0) {
                     final Position targetCell = enemyUnits.get(j).getPosition();
                     // TODO: MAX_VALUE, STAY?
-                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true)) {
+                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
                         blocked(myUnit);
                     }
                     used.add(myUnit);

@@ -5,6 +5,15 @@ import util.StreamUtil;
 public class MoveAction {
     private Position target;
 
+    @Override
+    public String toString() {
+        return "MoveAction{" +
+                "target=" + target +
+                ", findClosestPosition=" + findClosestPosition +
+                ", breakThrough=" + breakThrough +
+                '}';
+    }
+
     public Position getTarget() {
         return target;
     }

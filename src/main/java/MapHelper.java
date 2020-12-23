@@ -21,7 +21,7 @@ public class MapHelper {
         MY_BUILDER,
         MY_WORKING_BUILDER,
         MY_ATTACKING_UNIT,
-        MY_EATING_FOOD_UNIT
+        MY_EATING_FOOD_RANGED_UNIT
     }
 
     enum UNDER_ATTACK {
@@ -430,25 +430,46 @@ public class MapHelper {
     }
 
     interface BfsHandler {
-        boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist);
+        boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist);
 
         boolean shouldEnd(int x, int y, int dist);
     }
 
     static class PathToTargetBfsHandler implements BfsHandler, Dijkstra.DijkstraHandler {
         final Position startPos;
-        int dist = -1;
+        int resultDist = -1;
         final int skipLastNCells;
         final boolean okGoNotGoThere;
+        final boolean okGoThroughMyBuilders;
+        final boolean okEatFood;
 
-        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells, final boolean okGoNotGoThere) {
-            this.startPos = startPos;
-            this.skipLastNCells = skipLastNCells;
-            this.okGoNotGoThere = okGoNotGoThere;
+        public boolean isOkGoNotGoThere() {
+            return okGoNotGoThere;
+        }
+
+        public boolean isOkGoThroughMyBuilders() {
+            return okGoThroughMyBuilders;
+        }
+
+        public boolean isOkEatFood() {
+            return okEatFood;
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public int getSkipLastNCells() {
+            return skipLastNCells;
+        }
+
+        PathToTargetBfsHandler(final Position startPos, final int skipLastNCells, final boolean okGoNotGoThere, final boolean okGoThroughMyBuilders, final boolean okEatFood) {
+            this.startPos = startPos;
+            this.skipLastNCells = skipLastNCells;
+            this.okGoNotGoThere = okGoNotGoThere;
+            this.okGoThroughMyBuilders = okGoThroughMyBuilders;
+            this.okEatFood = okEatFood;
+        }
+
+        @Override
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             if (dist < skipLastNCells) {
                 return true;
             }
@@ -463,15 +484,17 @@ public class MapHelper {
                     break;
             }
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT -> true;
-                case MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT -> true;
+                case FOOD -> okEatFood;
+                case MY_BUILDER, MY_WORKING_BUILDER -> okGoThroughMyBuilders;
+                case MY_BUILDING -> false;
             };
         }
 
         @Override
         public boolean shouldEnd(int x, int y, int dist) {
             if (x == startPos.getX() && y == startPos.getY()) {
-                this.dist = dist;
+                this.resultDist = dist;
                 return true;
             }
             return false;
@@ -480,13 +503,13 @@ public class MapHelper {
         @Override
         public int getEdgeCost(CAN_GO_THROUGH type) {
             return switch (type) {
-                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
+                case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
                 case UNKNOWN, FOOD -> 2;
             };
         }
 
         public boolean foundPath() {
-            return dist != -1;
+            return resultDist != -1;
         }
     }
 
@@ -502,10 +525,10 @@ public class MapHelper {
 
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             // TODO: think about it?
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT -> true;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT -> true;
                 case MY_BUILDING, FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
@@ -522,7 +545,7 @@ public class MapHelper {
 
     static class PathToResourcesBfsHandler implements BfsHandler {
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             switch (underAttack) {
                 case SAFE:
                     break;
@@ -530,7 +553,7 @@ public class MapHelper {
                     return false;
             }
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
                 case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
@@ -543,7 +566,7 @@ public class MapHelper {
 
     static class PathToEnemyUnitsBfsHandler implements BfsHandler {
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             return true;
         }
 
@@ -568,7 +591,7 @@ public class MapHelper {
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             switch (underAttack) {
                 case SAFE:
                     break;
@@ -576,7 +599,7 @@ public class MapHelper {
                     return false;
             }
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
                 case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
@@ -613,8 +636,12 @@ public class MapHelper {
             this.currentVisitedIter = 0;
         }
 
+        boolean isVisited(int compressedCoord) {
+            return visited[compressedCoord] == currentVisitedIter;
+        }
+
         void visit(int compressedCoord, int nowDist) {
-            if (visited[compressedCoord] == currentVisitedIter) {
+            if (isVisited(compressedCoord)) {
                 return;
             }
             dist[compressedCoord] = nowDist;
@@ -649,13 +676,16 @@ public class MapHelper {
                     if (!insideMap(nx, ny)) {
                         continue;
                     }
+                    int nextCompressedCoord = compressCoord(nx, ny);
+                    if (isVisited(nextCompressedCoord)) {
+                        continue;
+                    }
                     if (handler.shouldEnd(nx, ny, nextDist)) {
                         return;
                     }
-                    if (!handler.canGoThrough(canGoThrough[nx][ny], underAttack[nx][ny], nextDist)) {
+                    if (!handler.canGoThrough(canGoThrough[nx][ny], underAttack[nx][ny], nx, ny, nextDist)) {
                         continue;
                     }
-                    int nextCompressedCoord = compressCoord(nx, ny);
                     visit(nextCompressedCoord, nextDist);
                 }
             }
@@ -675,11 +705,12 @@ public class MapHelper {
         }
     }
 
-    public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type, boolean okToAttackFood) {
+    public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type, boolean okToAttackFood, boolean okGoThroughMyBuilders) {
         return switch (type) {
-            case EMPTY_CELL, UNKNOWN, MY_BUILDER -> true;
-            case MY_BUILDING, MY_ATTACKING_UNIT, MY_WORKING_BUILDER -> false;
-            case FOOD, MY_EATING_FOOD_UNIT -> okToAttackFood;
+            case EMPTY_CELL, UNKNOWN -> true;
+            case MY_BUILDING, MY_ATTACKING_UNIT -> false;
+            case MY_BUILDER, MY_WORKING_BUILDER -> okGoThroughMyBuilders;
+            case FOOD, MY_EATING_FOOD_RANGED_UNIT -> okToAttackFood;
         };
     }
 
@@ -698,7 +729,12 @@ public class MapHelper {
         }
     }
 
-    public Position findFirstCellOnPath(final Position startPos, final Position targetPos, final int totalDist, final QueueDist bfs, boolean canAttackResources) {
+    public List<Position> findFirstCellOnPath(final Position startPos,
+                                              final Position targetPos,
+                                              final int totalDist,
+                                              final QueueDist bfs,
+                                              boolean canAttackResources,
+                                              boolean okGoThrougMyBuilders) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
         List<FirstMoveOption> options = new ArrayList<>();
         for (Dir dir : dirs) {
@@ -712,16 +748,23 @@ public class MapHelper {
                 continue;
             }
             if (insideMap(nx, ny) && distFromNext + bfs.getEdgeCost(nx, ny) <= totalDist) {
-                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources)) {
+                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources, okGoThrougMyBuilders)) {
                     options.add(new FirstMoveOption(new Position(nx, ny), distFromNext));
                 }
             }
         }
         Collections.sort(options);
         if (options.isEmpty()) {
-            return null;
+            return new ArrayList<>();
         }
-        return options.get(0).goTo;
+        while (options.get(options.size() - 1).compareTo(options.get(0)) != 0) {
+            options.remove(options.size() - 1);
+        }
+        List<Position> firstPositions = new ArrayList<>();
+        for (FirstMoveOption option : options) {
+            firstPositions.add(option.goTo);
+        }
+        return firstPositions;
     }
 
     public Position findLastCellOnPath(final Position startPos, final int totalDist, final BfsQueue bfs, boolean minDistIsOne) {
@@ -757,13 +800,13 @@ public class MapHelper {
     /**
      * @return first cell in the path
      */
-    public Position findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist, boolean okGoToNotGoThere) {
+    public List<Position> findBestPathToTargetDijkstra(final Position startPos, final Position targetPos, int skipLastNCells, int maxDist, boolean okGoToNotGoThere, boolean okGoThroughMyBuilders, boolean okEatFood) {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
-        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere);
+        final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere, okGoThroughMyBuilders, okEatFood);
         QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist);
-        return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true);
+        return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true, okGoThroughMyBuilders);
     }
 
 
@@ -808,7 +851,7 @@ public class MapHelper {
     }
 
     class PathsFromBuilders {
-        final Map<Entity, Position> firstCellsInPath;
+        final Map<Entity, List<Position>> firstCellsInPath;
 
         public PathsFromBuilders(final PathToBuildersBfsHandler handler, BfsQueue queue) {
             this.firstCellsInPath = new HashMap<>();
@@ -816,8 +859,8 @@ public class MapHelper {
                 // TODO: fix target cell
                 final Position pos = builder.getPosition();
                 final int dist = queue.getDist(pos.getX(), pos.getY());
-                final Position firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue, false);
-                if (firstCell == null) {
+                final List<Position> firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue, false, true);
+                if (firstCell.isEmpty()) {
                     continue;
                 }
                 firstCellsInPath.put(builder, firstCell);
@@ -847,8 +890,10 @@ public class MapHelper {
         final List<Position> targetCells;
         final int maxOptions;
 
-        int[] dx = new int[]{0, -1, 1, 0};
-        int[] dy = new int[]{1, 0, 0, -1};
+        int[] dx = Directions.dx;
+        int[] dy = Directions.dy;
+
+        final Position startPos;
 
         boolean isTargetCell(int x, int y) {
             for (int it = 0; it < dx.length; it++) {
@@ -864,27 +909,29 @@ public class MapHelper {
             return false;
         }
 
-        PathsToResourcesFromBuilderBfsHandler(int maxOptions) {
+        PathsToResourcesFromBuilderBfsHandler(int maxOptions, final Position startPos) {
             targetCells = new ArrayList<>();
             this.maxOptions = maxOptions;
+            this.startPos = startPos;
         }
 
         @Override
-        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int dist) {
+        public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int curDist) {
             switch (underAttack) {
                 case SAFE:
                     break;
                 case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE:
                     return false;
             }
+            int dist = Math.abs(x - startPos.getX()) + Math.abs(y - startPos.getY());
             if (dist == 1) {
                 return switch (type) {
                     case EMPTY_CELL, UNKNOWN, MY_BUILDER -> true;
-                    case MY_BUILDING, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_WORKING_BUILDER -> false;
+                    case MY_BUILDING, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_WORKING_BUILDER -> false;
                 };
             }
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_UNIT, MY_BUILDER -> true;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
                 case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
             };
         }
@@ -894,7 +941,7 @@ public class MapHelper {
             if (targetCells.size() >= maxOptions) {
                 return true;
             }
-            if (isTargetCell(x, y) && canGoThrough(canGoThrough[x][y], underAttack[x][y], dist)) {
+            if (isTargetCell(x, y) && canGoThrough(canGoThrough[x][y], underAttack[x][y], x, y, dist)) {
                 targetCells.add(new Position(x, y));
             }
             return false;
@@ -902,7 +949,7 @@ public class MapHelper {
     }
 
     public List<PathSuggestion> findPathsToResourcesFromBuilder(final Position startPos, final int maxOptions) {
-        PathsToResourcesFromBuilderBfsHandler handler = new PathsToResourcesFromBuilderBfsHandler(maxOptions);
+        PathsToResourcesFromBuilderBfsHandler handler = new PathsToResourcesFromBuilderBfsHandler(maxOptions, startPos);
         final List<Position> initialPositions = new ArrayList<>();
         initialPositions.add(startPos);
         final BfsQueue queue = findPathsToCells(initialPositions, handler);
@@ -910,6 +957,9 @@ public class MapHelper {
         for (Position targetCell : handler.targetCells) {
             final int dist = queue.getDist(targetCell.getX(), targetCell.getY());
             final Position firstCellOnPath = findLastCellOnPath(targetCell, dist, queue, true);
+            if (startPos.distTo(firstCellOnPath) != 1) {
+                throw new AssertionError("strange first cell! " + startPos + " " + firstCellOnPath + " " + targetCell + " " + dist);
+            }
             pathSuggestions.add(new PathSuggestion(targetCell, firstCellOnPath, dist));
         }
         return pathSuggestions;

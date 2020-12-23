@@ -35,6 +35,11 @@ public class Vec2Float {
         return new Vec2Float(x + dx, y + dy);
     }
 
+
+    public Vec2Float shift(double dx, double dy) {
+        return new Vec2Float((float) (x + dx), (float) (y + dy));
+    }
+
     public static Vec2Float readFrom(java.io.InputStream stream) throws java.io.IOException {
         Vec2Float result = new Vec2Float();
         result.x = StreamUtil.readFloat(stream);

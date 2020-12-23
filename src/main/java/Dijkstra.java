@@ -6,9 +6,17 @@ public class Dijkstra {
     final MapHelper mapHelper;
 
     interface DijkstraHandler {
-        boolean canGoThrough(MapHelper.CAN_GO_THROUGH type, MapHelper.UNDER_ATTACK underAttack, int dist);
+        boolean canGoThrough(MapHelper.CAN_GO_THROUGH type, MapHelper.UNDER_ATTACK underAttack, int x, int y, int dist);
 
         int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through);
+
+        boolean isOkGoNotGoThere();
+
+        boolean isOkGoThroughMyBuilders();
+
+        boolean isOkEatFood();
+
+        int getSkipLastNCells();
     }
 
     class Vertex implements Comparable<Vertex> {
@@ -66,7 +74,7 @@ public class Dijkstra {
                 if (!mapHelper.insideMap(nx, ny)) {
                     continue;
                 }
-                if (!handler.canGoThrough(mapHelper.canGoThrough[nx][ny], mapHelper.underAttack[nx][ny], nextDist)) {
+                if (!handler.canGoThrough(mapHelper.canGoThrough[nx][ny], mapHelper.underAttack[nx][ny], nx, ny, nextDist)) {
                     continue;
                 }
                 addVertexToQueue(new Position(nx, ny), nextDist, curPos);
@@ -106,24 +114,60 @@ public class Dijkstra {
         }
     }
 
-    final Map<Position, State> statesByTargetPos;
+    static class DijkstraProperties {
+        final Position targetPos;
+        final boolean okGoNotGoThere;
+        final boolean okGoThroughBuilders;
+        final boolean okEatFood;
+        final int skipLastNCells;
+
+        public DijkstraProperties(Position targetPos, boolean okGoNotGoThere, boolean okGoThroughBuilders, final int skipLastNCells, final boolean okEatFood) {
+            this.targetPos = targetPos;
+            this.okGoNotGoThere = okGoNotGoThere;
+            this.okGoThroughBuilders = okGoThroughBuilders;
+            this.skipLastNCells = skipLastNCells;
+            this.okEatFood = okEatFood;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DijkstraProperties that = (DijkstraProperties) o;
+            return okGoNotGoThere == that.okGoNotGoThere &&
+                    okGoThroughBuilders == that.okGoThroughBuilders &&
+                    okEatFood == that.okEatFood &&
+                    skipLastNCells == that.skipLastNCells &&
+                    Objects.equals(targetPos, that.targetPos);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(targetPos, okGoNotGoThere, okGoThroughBuilders, okEatFood, skipLastNCells);
+        }
+    }
+
+    final Map<DijkstraProperties, State> statesByProperties;
 
     public Dijkstra(MapHelper mapHelper) {
         this.mapHelper = mapHelper;
-        this.statesByTargetPos = new HashMap<>();
+        this.statesByProperties = new HashMap<>();
     }
 
 
     QueueDist findFirstCellOnPath(final Position startPos, final Position targetPos, final DijkstraHandler handler, int maxDist) {
-        // TODO: we need to check that handlers are the same to use cache?!
-        // TODO: ok go not go there is different
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
-        State state = statesByTargetPos.get(targetPos);
+        DijkstraProperties properties = new DijkstraProperties(targetPos,
+                handler.isOkGoNotGoThere(),
+                handler.isOkGoThroughMyBuilders(),
+                handler.getSkipLastNCells(),
+                handler.isOkEatFood());
+        State state = statesByProperties.get(properties);
         if (state == null) {
             state = new State(targetPos, handler);
-            statesByTargetPos.put(targetPos, state);
+            statesByProperties.put(properties, state);
         }
         state.getFirstPathOnPath(startPos, maxDist);
         return state;

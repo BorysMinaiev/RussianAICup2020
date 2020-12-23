@@ -4,7 +4,7 @@ import java.util.*;
 
 public class State {
     boolean decidedWhatToWithBuilders = false;
-    final Action actions;
+    final MovesPicker movesPicker;
     final PlayerView playerView;
     final Random rnd;
     final List<Entity> myEntities;
@@ -243,7 +243,6 @@ public class State {
 
     State(final PlayerView playerView, final DebugInterface debugInterface) {
         this.debugInterface = debugInterface;
-        this.actions = new Action(new HashMap<>());
         this.playerView = playerView;
         this.myEntities = computeMyEntities();
         this.allEnemiesWarUnits = computeAllEnemiesWarUnits();
@@ -264,8 +263,8 @@ public class State {
         this.debugTargets = new HashMap<>();
         this.debugUnitsInBadPostion = new HashSet<>();
         this.map = new MapHelper(this);
-        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
-        defaultDoNothing();
+        this.movesPicker = new MovesPicker(this);
+//        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         this.needProtection = new NeedProtection(this);
     }
 
@@ -293,15 +292,8 @@ public class State {
         return totalResources;
     }
 
-    private void defaultDoNothing() {
-        for (Entity entity : myEntities) {
-            setAction(entity, EntityAction.emptyAction);
-        }
-    }
-
-
-    public void printSomeDebug(DebugInterface debugInterface, boolean isBetweenTicks) {
-        Debug.printSomeDebug(debugInterface, this, isBetweenTicks);
+    public void printSomeDebug(DebugInterface debugInterface, boolean isBetweenTicks, Action action) {
+        Debug.printSomeDebug(debugInterface, this, isBetweenTicks, action);
     }
 
     public boolean checkCanBuild(EntityType who, EntityType what) {
@@ -427,12 +419,8 @@ public class State {
         return cost <= money;
     }
 
-    public void repairSomething(final Entity who, final int what) {
-        actions.getEntityActions().put(who.getId(), new EntityAction(null, null, null, new RepairAction(what)));
-    }
-
-    private void setAction(final Entity entity, final EntityAction action) {
-        actions.getEntityActions().put(entity.getId(), action);
+    public void repairSomething(final Entity who, final Entity what) {
+        movesPicker.addRepairAction(who, what);
     }
 
     public void buildSomething(final Entity who, final EntityType what, final Position where) {
@@ -447,19 +435,21 @@ public class State {
             throw new AssertionError("Not enough money to build :(");
         }
         if (map.entitiesByPos[where.getX()][where.getY()] != null) {
-            throw new AssertionError("Build in a strange pos?");
+//            throw new AssertionError("Build in a strange pos?");
         }
-        setAction(who, EntityAction.createBuildAction(what, where));
+        movesPicker.addBuildAction(who, what, where);
     }
 
     public void attackSomebody(final Entity who) {
         EntityProperties properties = playerView.getEntityProperties().get(who.getEntityType());
         // TODO: use smarter attack?
-        setAction(who, EntityAction.createAttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{})));
+        EntityAction action = EntityAction.createAttackAction(null, new AutoAttack(properties.getSightRange(), new EntityType[]{}));
+        movesPicker.addAttackAction(who, action, MovesPicker.PRIORITY_ATTACK);
     }
 
-    public void attack(final Entity who, final Entity what) {
-        setAction(who, EntityAction.createAttackAction(what.getId(), null));
+    public void attack(final Entity who, final Entity what, int priority) {
+        EntityAction action = EntityAction.createAttackAction(what.getId(), null);
+        movesPicker.addAttackAction(who, action, priority);
     }
 
     boolean insideMap(Position pos) {
@@ -469,7 +459,7 @@ public class State {
                 pos.getY() < playerView.getMapSize();
     }
 
-    public List<Position> getAllPossibleUnitMoves(Entity unit, boolean okToAttackFood) {
+    public List<Position> getAllPossibleUnitMoves(Entity unit, boolean okToAttackFood, boolean okGoThroughMyBuilders) {
         List<Position> canGo = new ArrayList<>();
         int[] dx = new int[]{-1, 0, 0, 1};
         int[] dy = new int[]{0, -1, 1, 0};
@@ -478,7 +468,7 @@ public class State {
             if (!insideMap(checkPos)) {
                 continue;
             }
-            if (!MapHelper.canGoThereOnCurrentTurn(map.canGoThrough[checkPos.getX()][checkPos.getY()], okToAttackFood)) {
+            if (!MapHelper.canGoThereOnCurrentTurn(map.canGoThrough[checkPos.getX()][checkPos.getY()], okToAttackFood, okGoThroughMyBuilders)) {
                 continue;
             }
             canGo.add(checkPos);
@@ -486,26 +476,12 @@ public class State {
         return canGo;
     }
 
-    public void move(Entity unit, Position where) {
-        setAction(unit, EntityAction.createMoveAction(where, true, true));
-    }
-
-    public void randomlyMoveAndAttack(final Entity unit) {
-        MoveAction moveAction = null;
-        moveAction = new MoveAction(
-                new Position(playerView.getMapSize() - 1, playerView.getMapSize() - 1),
-                true,
-                true);
-        EntityType[] validAutoAttackTargets = new EntityType[0];
-        EntityProperties properties = getEntityProperties(unit);
-        setAction(unit, new EntityAction(
-                moveAction,
-                null,
-                new AttackAction(
-                        null, new AutoAttack(properties.getSightRange() * 5, validAutoAttackTargets)
-                ),
-                null
-        ));
+    public void move(Entity unit, Position where, int priority) {
+        int dist = unit.getPosition().distTo(where);
+        if (dist != 1) {
+            throw new AssertionError("TOO SMART?");
+        }
+        movesPicker.addMoveAction(unit, where, priority);
     }
 
     public boolean isOccupiedByBuilding(Position position) {
@@ -521,7 +497,7 @@ public class State {
     }
 
     public boolean alreadyHasAction(Entity unit) {
-        return actions.getEntityActions().get(unit.getId()) != EntityAction.emptyAction;
+        return movesPicker.hasGoodAction(unit);
     }
 
     public boolean inMyRegionOfMap(Entity enemy) {
@@ -530,8 +506,8 @@ public class State {
         return pos.getX() < mapSize / 2 && pos.getY() < mapSize / 2;
     }
 
-    public EntityAction getUnitAction(Entity ent) {
-        return actions.getEntityActions().get(ent.getId());
+    public EntityAction getUnitAction(Entity entity) {
+        return movesPicker.getCurrentBestAction(entity).action;
     }
 
     public Entity getEntityById(Integer id) {
@@ -539,6 +515,6 @@ public class State {
     }
 
     public void doNothing(Entity unit) {
-        setAction(unit, EntityAction.emptyAction);
+        movesPicker.doNothing(unit);
     }
 }

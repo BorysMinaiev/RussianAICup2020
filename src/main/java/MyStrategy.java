@@ -56,23 +56,25 @@ public class MyStrategy {
                         true,
                         true);
                 EntityType[] validAutoAttackTargets;
-                if (entity.getEntityType() == EntityType.BUILDER_UNIT) {
-                    validAutoAttackTargets = new EntityType[]{EntityType.RESOURCE};
+                if (entity.getEntityType() == BUILDER_UNIT) {
+                    validAutoAttackTargets = new EntityType[]{RESOURCE};
                 } else {
                     validAutoAttackTargets = new EntityType[0];
                 }
-                state.actions.getEntityActions().put(entity.getId(), new EntityAction(
+                EntityAction action = new EntityAction(
                         moveAction,
                         buildAction,
                         new AttackAction(
                                 null, new AutoAttack(properties.getSightRange() * 5, validAutoAttackTargets)
                         ),
                         null
-                ));
+                );
+                state.movesPicker.addManualAction(entity, action, MovesPicker.PRIORITY_SMALL);
             }
         }
-        state.printSomeDebug(debugInterface, false);
-        return state.actions;
+        Action action = state.movesPicker.buildActions();
+        state.printSomeDebug(debugInterface, false, action);
+        return action;
     }
 
     public void debugUpdate(PlayerView playerView, DebugInterface debugInterface) {
@@ -81,6 +83,6 @@ public class MyStrategy {
         }
         State state = new State(playerView, debugInterface);
         state.globalStrategy.setNeedMoreRangedUnits(false);
-        state.printSomeDebug(debugInterface, true);
+        state.printSomeDebug(debugInterface, true, null);
     }
 }

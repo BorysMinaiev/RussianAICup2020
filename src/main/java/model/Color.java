@@ -61,6 +61,7 @@ public class Color {
     public static Color ORANGE = new Color(1.0f, 165.0f / 256, 0.0f, 1.0f);
     public static Color WHITE = new Color(1.0f, 1.0f, 1.0f, 1.0f);
     public static Color YELLOW = new Color(1.0f, 1.0f, 0.0f, 1.0f);
+    public static Color PURPLE = new Color(0.8f, 0.0f, 1.0f, 1.0f);
 
     public static Color readFrom(java.io.InputStream stream) throws java.io.IOException {
         Color result = new Color();

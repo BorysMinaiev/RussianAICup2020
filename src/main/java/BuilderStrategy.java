@@ -26,7 +26,7 @@ public class BuilderStrategy {
     }
 
     static boolean moveAwayFromAttack(final State state, final Entity builder) {
-        List<Position> allPossibleMoves = state.getAllPossibleUnitMoves(builder, false);
+        List<Position> allPossibleMoves = state.getAllPossibleUnitMoves(builder, false, true);
         Position bestPosToGo = builder.getPosition();
         double currentAttackScore = state.attackedByPos.getOrDefault(bestPosToGo, 0.0);
         Collections.shuffle(allPossibleMoves, state.rnd);
@@ -40,7 +40,7 @@ public class BuilderStrategy {
         if (bestPosToGo == builder.getPosition()) {
             return false;
         }
-        state.move(builder, bestPosToGo);
+        state.move(builder, bestPosToGo, MovesPicker.PRIORITY_GO_AWAY_FROM_ATTACK);
         return true;
     }
 
@@ -120,7 +120,7 @@ public class BuilderStrategy {
             int ny = pos.getY() + dy[it];
             if (state.map.canMineThisCell(nx, ny)) {
                 markBuilderAsWorking(state, builder);
-                state.attack(builder, state.map.entitiesByPos[nx][ny]);
+                state.attack(builder, state.map.entitiesByPos[nx][ny], MovesPicker.PRIORITY_MINE_RESOURCES);
                 return true;
             }
         }
@@ -143,7 +143,7 @@ public class BuilderStrategy {
         for (Entity builder : allBuilders) {
             Entity toRepair = getTargetToRepair(state, builder);
             if (toRepair != null) {
-                state.repairSomething(builder, toRepair.getId());
+                state.repairSomething(builder, toRepair);
                 markBuilderAsWorking(state, builder);
                 alreadyRepairing.put(toRepair, alreadyRepairing.getOrDefault(toRepair, 0) + 1);
             }
@@ -164,10 +164,11 @@ public class BuilderStrategy {
             final List<Position> initialPositions = allPositionsOfEntity(state, entity);
             MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
                     searchDistToRepair, needMoreWorkers);
-            for (Map.Entry<Entity, Position> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
+            for (Map.Entry<Entity, List<Position>> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
                 final Entity builder = entry.getKey();
-                final Position nextPos = entry.getValue();
-                state.move(builder, nextPos);
+                for (Position nextPos : entry.getValue()) {
+                    state.move(builder, nextPos, MovesPicker.PRIORITY_GO_TO_REPAIR);
+                }
                 state.debugTargets.put(builder.getPosition(), entity.getPosition());
                 // TODO: something else?
             }
@@ -317,10 +318,11 @@ public class BuilderStrategy {
                 if (pathsForBuilders.firstCellsInPath.isEmpty()) {
                     continue;
                 }
-                for (Map.Entry<Entity, Position> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
+                for (Map.Entry<Entity, List<Position>> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
                     final Entity builder = entry.getKey();
-                    final Position nextPos = entry.getValue();
-                    state.move(builder, nextPos);
+                    for (Position nextPos : entry.getValue()) {
+                        state.move(builder, nextPos, MovesPicker.PRIORITY_GO_TO_BUILD);
+                    }
                     state.debugTargets.put(builder.getPosition(), option.where);
                     return builder;
                 }
@@ -370,7 +372,7 @@ public class BuilderStrategy {
                 if (edge.flow > 0) {
                     MapHelper.PathSuggestion suggestion = suggestionsForBuilders[i].get(j);
                     final Position targetCell = suggestion.targetCell;
-                    state.move(builder, suggestion.firstCellOnPath);
+                    state.move(builder, suggestion.firstCellOnPath, MovesPicker.PRIORITY_GO_TO_MINE);
                     if (state.debugInterface != null) {
                         state.debugTargets.put(builder.getPosition(), targetCell);
                     }
@@ -379,16 +381,39 @@ public class BuilderStrategy {
                 }
             }
             if (!found) {
+                final Position pos = builder.getPosition();
+//                if (state.map.underAttack[pos.getX()][pos.getY()].isUnderAttack()) {
                 if (!moveAwayFromAttack(state, builder)) {
                     // I will die, but at least will do something!
-                    state.addDebugUnitInBadPosition(builder.getPosition());
+                    blocked(state, builder);
                     if (!mineRightNow(state, builder)) {
                         // TODO: do something?
                     }
                 }
+//                } else {
+//                    final int mapSize = state.playerView.getMapSize();
+//                    Position targetPos = new Position(mapSize - 1, mapSize - 1);
+//                    if (!goToPosition(state, builder, targetPos, Integer.MAX_VALUE, false, false, MovesPicker.PRIORITY_GO_TO_UNBLOCK, false)) {
+//                        blocked(state, builder);
+//                    }
+//                }
             }
         }
     }
+
+    private static void blocked(final State state, final Entity builder) {
+        state.addDebugUnitInBadPosition(builder.getPosition());
+    }
+
+//    private static boolean goToPosition(final State state, final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoThroughMyBuilders, int priority, boolean okEatFood) {
+//        Position firstCellInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(), goToPos, 0, maxDist, okGoToNotGoThere, okGoThroughMyBuilders, okEatFood);
+//        if (firstCellInPath != null) {
+//            state.addDebugTarget(unit.getPosition(), goToPos);
+//            state.move(unit, firstCellInPath, priority);
+//            return true;
+//        }
+//        return false;
+//    }
 
 
 }

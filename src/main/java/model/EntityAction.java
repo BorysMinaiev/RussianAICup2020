@@ -5,6 +5,16 @@ import util.StreamUtil;
 public class EntityAction {
     private model.MoveAction moveAction;
 
+    @Override
+    public String toString() {
+        return "EntityAction{" +
+                "moveAction=" + moveAction +
+                ", buildAction=" + buildAction +
+                ", attackAction=" + attackAction +
+                ", repairAction=" + repairAction +
+                '}';
+    }
+
     public static EntityAction createBuildAction(EntityType what, Position where) {
         return new EntityAction(null, new BuildAction(what, where), null, null);
     }
