@@ -179,6 +179,29 @@ public class RangedUnitStrategy {
         resolveEatingFoodPaths(allRangedUnits);
     }
 
+    boolean goToRepair(final Entity unit) {
+        if (unit.getHealth() != 5) {
+            return false;
+        }
+        Entity closestBuilder = null;
+        int closestBuilderDist = 20;
+        for (Entity builder : state.myEntitiesByType.get(EntityType.BUILDER_UNIT)) {
+            int dist = builder.getPosition().distTo(unit.getPosition());
+            if (dist < closestBuilderDist) {
+                closestBuilderDist = dist;
+                closestBuilder = builder;
+            }
+        }
+        if (closestBuilder == null) {
+            return false;
+        }
+        boolean foundPath = goToPosition(unit, closestBuilder.getPosition(), closestBuilderDist * 2, false, false, false, MovesPicker.PRIORITY_REPAIR);
+        if (foundPath) {
+            System.err.println(unit + " is going for repair, dist = " + closestBuilderDist);
+        }
+        return foundPath;
+    }
+
     static private List<Entity> filterProtections(List<Entity> allUnits, Set<Entity> used) {
         List<Entity> rest = new ArrayList<>();
         for (Entity entity : allUnits) {

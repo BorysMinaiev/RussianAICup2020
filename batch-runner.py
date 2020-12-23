@@ -1,9 +1,11 @@
-import subprocess
 import json
+import subprocess
+
+v1 = 15
+v2 = 14
+
 
 def run_one_game():
-    v1 = 12
-    v2 = 13
     port1 = 32001
     port2 = 32002
 

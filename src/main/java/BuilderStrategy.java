@@ -50,6 +50,7 @@ public class BuilderStrategy {
         final int occupiedCellsNearby;
         final int distToZero;
         final int distToBuilder;
+        final int score;
 
         @Override
         public String toString() {
@@ -92,17 +93,12 @@ public class BuilderStrategy {
             final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
             this.distToBuilder = distToBuilder;
+            this.score = (distToBuilder * 4 + occupiedCellsNearby.size()) * 1000 + distToZero;
         }
 
         @Override
         public int compareTo(BuildOption o) {
-            if (distToBuilder != o.distToBuilder) {
-                return Integer.compare(distToBuilder, o.distToBuilder);
-            }
-//            if (occupiedCellsNearby != o.occupiedCellsNearby) {
-//                return Integer.compare(occupiedCellsNearby, o.occupiedCellsNearby);
-//            }
-            return Integer.compare(distToZero, o.distToZero);
+            return Integer.compare(score, o.score);
         }
     }
 
@@ -129,10 +125,10 @@ public class BuilderStrategy {
 
     static int getNumWorkersToHelpRepair(final EntityType type) {
         if (type == RANGED_BASE || type == BUILDER_BASE) {
-            return 8;
+            return 10;
         }
         if (type == HOUSE) {
-            return 2;
+            return 3;
         }
         return 1;
     }

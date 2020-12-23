@@ -135,6 +135,23 @@ public class Debug {
         state.debugPos++;
     }
 
+    private static void printRangedHealth(final State state, DebugInterface debugInterface) {
+        int cnt5 = 0, cnt69 = 0, cnt10 = 0;
+        for (Entity myEntity : state.myEntities) {
+            if (myEntity.getEntityType() == EntityType.RANGED_UNIT) {
+                int health = myEntity.getHealth();
+                if (health == 5) {
+                    cnt5++;
+                } else if (health >= 6 && health <= 9) {
+                    cnt69++;
+                } else if (health == 10) {
+                    cnt10++;
+                }
+            }
+        }
+        printDebugText(state, debugInterface, "Health: " + cnt5 + "/" + cnt69 + "/" + cnt10, Color.GREEN);
+    }
+
     private static void fillCell(List<Vec2Float> trianglePoints, int x, int y) {
         trianglePoints.add(new Vec2Float(x, y));
         trianglePoints.add(new Vec2Float(x + 1, y));
@@ -353,6 +370,7 @@ public class Debug {
         printEntitiesStat(state, debugInterface);
         printCurrentBuildTarget(state, debugInterface);
         printTotalResourcesLeft(state, debugInterface);
+        printRangedHealth(state, debugInterface);
         if (isBetweenTicks) {
             showUnderAttackMap(state, debugInterface);
             showSafePlacesToMine(state, debugInterface);
