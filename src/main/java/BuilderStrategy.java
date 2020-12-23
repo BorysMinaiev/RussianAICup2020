@@ -306,7 +306,7 @@ public class BuilderStrategy {
         Collections.sort(buildOptions);
         for (BuildOption option : buildOptions) {
             if (option.distToBuilder == 1) {
-                state.buildSomething(option.builder, what, option.where);
+                state.buildSomething(option.builder, what, option.where, MovesPicker.PRIORITY_BUILD);
                 markBuilderAsWorking(state, option.builder);
                 return option.builder;
             } else {

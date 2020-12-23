@@ -75,4 +75,12 @@ public class BuildAction {
         StreamUtil.writeInt(stream, entityType.tag);
         position.writeTo(stream);
     }
+
+    @Override
+    public String toString() {
+        return "BuildAction{" +
+                "entityType=" + entityType +
+                ", position=" + position +
+                '}';
+    }
 }

@@ -1,5 +1,7 @@
 import model.*;
 
+import java.util.List;
+
 import static model.EntityType.*;
 
 public class MyStrategy {
@@ -7,11 +9,10 @@ public class MyStrategy {
         if (!state.isEnoughResourcesToBuild(unitType)) {
             return;
         }
-        Position pos = PositionsPicker.pickPositionToBuildUnit(state, building, unitType);
-        if (pos == null) {
-            return;
+        List<PositionsPicker.PositionWithScore> options = PositionsPicker.pickPositionToBuildUnit(state, building, unitType);
+        for (PositionsPicker.PositionWithScore posWithScore : options) {
+            state.buildSomething(building, unitType, posWithScore.pos, posWithScore.score + MovesPicker.PRIORITY_BUILD);
         }
-        state.buildSomething(building, unitType, pos);
     }
 
     void spawnNewUnits(final State state, final Entity building) {

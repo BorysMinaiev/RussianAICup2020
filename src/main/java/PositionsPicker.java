@@ -38,23 +38,19 @@ public class PositionsPicker {
         return bestTarget;
     }
 
-    static class PositionWithScore implements Comparable<PositionWithScore> {
+    static class PositionWithScore  {
         final Position pos;
         // bigger - better!
-        final double score;
+        final int score;
 
-        public PositionWithScore(Position pos, double score) {
+        public PositionWithScore(Position pos, int score) {
             this.pos = pos;
             this.score = score;
         }
 
-        @Override
-        public int compareTo(PositionWithScore o) {
-            return -Double.compare(score, o.score);
-        }
     }
 
-    static double calcPositionScore(final Position position, final EntityType whatToBuild, final Position target) {
+    static int calcPositionScore(final Position position, final EntityType whatToBuild, final Position target) {
         int dist = position.distTo(target);
         if (whatToBuild == EntityType.RANGED_UNIT) {
             if (4 <= dist && dist <= 5) {
@@ -68,7 +64,7 @@ public class PositionsPicker {
         return -dist;
     }
 
-    static Position pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
+    static List<PositionWithScore> pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
         List<Position> unitPositions = state.findPossiblePositionToBuild(who, what);
         if (unitPositions.isEmpty()) {
             return null;
@@ -82,20 +78,17 @@ public class PositionsPicker {
             }
             bfsQueue = state.map.findPathsToResources();
         }
+        List<PositionWithScore> options = new ArrayList<>();
         if (target != null) {
-            List<PositionWithScore> options = new ArrayList<>();
             for (Position pos : unitPositions) {
-                double score = bfsQueue == null ? calcPositionScore(pos, what, target) : -bfsQueue.getDist(pos.getX(), pos.getY());
+                int score = bfsQueue == null ? calcPositionScore(pos, what, target) : -bfsQueue.getDist(pos.getX(), pos.getY());
                 options.add(new PositionWithScore(pos, score));
             }
-            Collections.sort(options);
-            int cntSameScore = 1;
-            while (cntSameScore != options.size() && options.get(cntSameScore).compareTo(options.get(0)) == 0) {
-                cntSameScore++;
+        } else {
+            for (Position pos : unitPositions) {
+                options.add(new PositionWithScore(pos, 0));
             }
-            int useOption = state.rnd.nextInt(cntSameScore);
-            return options.get(useOption).pos;
         }
-        return pickRandomPosition(unitPositions);
+        return options;
     }
 }

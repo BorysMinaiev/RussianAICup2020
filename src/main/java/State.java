@@ -423,8 +423,7 @@ public class State {
         movesPicker.addRepairAction(who, what);
     }
 
-    public void buildSomething(final Entity who, final EntityType what, final Position where) {
-        System.err.println(who + " tries to build " + what + " at " + where);
+    public void buildSomething(final Entity who, final EntityType what, final Position where, int priority) {
         if (where == null) {
             throw new AssertionError();
         }
@@ -437,7 +436,7 @@ public class State {
         if (map.entitiesByPos[where.getX()][where.getY()] != null) {
 //            throw new AssertionError("Build in a strange pos?");
         }
-        movesPicker.addBuildAction(who, what, where);
+        movesPicker.addBuildAction(who, what, where, priority);
     }
 
     public void attackSomebody(final Entity who) {

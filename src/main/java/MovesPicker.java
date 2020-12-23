@@ -4,7 +4,7 @@ import java.util.*;
 
 public class MovesPicker {
     public final static int PRIORITY_MINE_RESOURCES = 10;
-    public final static int PRIORITY_NOTHING = 0;
+    public final static int PRIORITY_NOTHING = -787;
     public final static int PRIORITY_GO_TO_PROTECT = 200;
     public final static int PRIORITY_BUILDER_BLOCKED_GO_AWAY = 15;
     public final static int PRIORITY_GO_FOR_ATTACK = 11;
@@ -85,6 +85,9 @@ public class MovesPicker {
     private void addPossibleMoves(List<Move> moves, Entity unit, State state) {
         final Position pos = unit.getPosition();
         moves.add(new Move(unit, pos, EntityAction.emptyAction, PRIORITY_NOTHING));
+        if (unit.getEntityType().isBuilding()) {
+            return;
+        }
         for (int it = 0; it < Directions.dx.length; it++) {
             Position nextPos = pos.shift(Directions.dx[it], Directions.dy[it]);
             if (!state.insideMap(nextPos)) {
@@ -242,10 +245,10 @@ public class MovesPicker {
         add(who, new Move(who, who.getPosition(), action, PRIORITY_REPAIR));
     }
 
-    void addBuildAction(Entity who, EntityType what, Position where) {
+    void addBuildAction(Entity who, EntityType what, Position where, int priority) {
         EntityAction action = EntityAction.createBuildAction(what, where);
         // TODO: buildings has size > 1!
-        add(who, new Move(who, where, action, PRIORITY_BUILD));
+        add(who, new Move(who, where, action, priority));
     }
 
     void addAttackAction(Entity who, EntityAction action, int priority) {

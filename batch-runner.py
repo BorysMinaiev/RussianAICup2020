@@ -2,8 +2,8 @@ import subprocess
 import json
 
 def run_one_game():
-    v1 = 11
-    v2 = 12
+    v1 = 12
+    v2 = 13
     port1 = 32001
     port2 = 32002
 
@@ -23,7 +23,7 @@ def run_one_game():
 wins1 = 0
 wins2 = 0
 
-print("games\twins1\twins2\tseed\tscore1\tscore2")
+print("games\t{}\t{}\tseed\tscore1\tscore2".format(v1, v2))
 
 TOTAL_GAMES = 100
 
