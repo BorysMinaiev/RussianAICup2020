@@ -446,9 +446,9 @@ public class State {
         movesPicker.addAttackAction(who, action, MovesPicker.PRIORITY_ATTACK);
     }
 
-    public void attack(final Entity who, final Entity what, int priority) {
+    public boolean attack(final Entity who, final Entity what, int priority) {
         EntityAction action = EntityAction.createAttackAction(what.getId(), null);
-        movesPicker.addAttackAction(who, action, priority);
+        return movesPicker.addAttackAction(who, action, priority);
     }
 
     boolean insideMap(Position pos) {
@@ -505,8 +505,12 @@ public class State {
         return pos.getX() < mapSize / 2 && pos.getY() < mapSize / 2;
     }
 
-    public EntityAction getUnitAction(Entity entity) {
-        return movesPicker.getCurrentBestAction(entity).action;
+    public List<MoveAction> getUnitMoveActions(Entity entity) {
+        return movesPicker.getMoveActions(entity);
+    }
+
+    public List<AttackAction> getUnitAttackActions(Entity entity) {
+        return movesPicker.getAttackActions(entity);
     }
 
     public Entity getEntityById(Integer id) {

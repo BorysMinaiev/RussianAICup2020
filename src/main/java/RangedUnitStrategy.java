@@ -25,10 +25,13 @@ public class RangedUnitStrategy {
         state.attack(who, what, MovesPicker.PRIORITY_ATTACK);
     }
 
-    private void eat(final Entity unit, final Position pos) {
-        // TODO: different mine priority?
-        state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()], MovesPicker.PRIORITY_ATTACK);
-        state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT);
+    private boolean eat(final Entity unit, final Position pos) {
+        if (state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()], MovesPicker.PRIORITY_ATTACK_FOOD)) {
+            // TODO: do we need it?
+            state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT);
+            return true;
+        }
+        return false;
     }
 
     private void blocked(final Entity unit) {
@@ -73,30 +76,21 @@ public class RangedUnitStrategy {
             }
             boolean changed = false;
             for (Entity unit : units) {
-                EntityAction action = state.getUnitAction(unit);
-                if (action == null) {
-                    continue;
-                }
-                MoveAction moveAction = action.getMoveAction();
-                if (moveAction == null) {
-                    continue;
-                }
-                final Position movePos = moveAction.getTarget();
-                if (state.map.canGoThrough[movePos.getX()][movePos.getY()] == MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT) {
+                List<MoveAction> moveActions = state.getUnitMoveActions(unit);
+                for (MoveAction moveAction : moveActions) {
+                    final Position movePos = moveAction.getTarget();
                     final Entity who = state.map.entitiesByPos[movePos.getX()][movePos.getY()];
-                    final EntityAction hisAction = state.getUnitAction(who);
-                    final AttackAction attackAction = hisAction.getAttackAction();
-                    if (attackAction == null) {
-                        System.err.println("Eat food, but not attack?");
-                        blocked(unit);
-                    } else {
-                        final Entity resource = state.getEntityById(attackAction.getTarget());
-                        final Position foodPos = resource.getPosition();
-                        if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
-                            changed = true;
-                            eat(unit, resource.getPosition());
-                        } else {
-                            blocked(unit);
+
+                    if (who != null && who.getPlayerId() == state.playerView.getMyId() && who.getEntityType() == EntityType.RANGED_UNIT) {
+                        final List<AttackAction> hisActions = state.getUnitAttackActions(who);
+                        for (AttackAction attackAction : hisActions) {
+                            final Entity resource = state.getEntityById(attackAction.getTarget());
+                            final Position foodPos = resource.getPosition();
+                            if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
+                                if (eat(unit, resource.getPosition())) {
+                                    changed = true;
+                                }
+                            }
                         }
                     }
                 }

@@ -12,6 +12,7 @@ public class MovesPicker {
     public final static int PRIORITY_BUILD = 30;
     public final static int PRIORITY_REPAIR = 10;
     public final static int PRIORITY_ATTACK = 100;
+    public final static int PRIORITY_ATTACK_FOOD = 99;
     public final static int PRIORITY_SMALL = 1;
     public final static int PRIORITY_MAX = 1000;
     public final static int PRIORITY_GO_AWAY_FROM_ATTACK = 14;
@@ -30,6 +31,28 @@ public class MovesPicker {
             }
         }
         return best;
+    }
+
+    public List<MoveAction> getMoveActions(Entity entity) {
+        List<Move> moves = possibilities.get(entity);
+        List<MoveAction> actions = new ArrayList<>();
+        for (Move move : moves) {
+            if (move.action.getMoveAction() != null) {
+                actions.add(move.action.getMoveAction());
+            }
+        }
+        return actions;
+    }
+
+    public List<AttackAction> getAttackActions(Entity entity) {
+        List<Move> moves = possibilities.get(entity);
+        List<AttackAction> actions = new ArrayList<>();
+        for (Move move : moves) {
+            if (move.action.getAttackAction() != null) {
+                actions.add(move.action.getAttackAction());
+            }
+        }
+        return actions;
     }
 
     public boolean hasGoodAction(Entity entity) {
@@ -236,8 +259,22 @@ public class MovesPicker {
         return actions;
     }
 
-    private void add(Entity who, Move move) {
-        possibilities.get(who).add(move);
+    boolean existBetterMove(List<Move> moves, Move nextMove) {
+        for (Move move : moves) {
+            if (move.targetPos.distTo(nextMove.targetPos) == 0 && move.priority >= nextMove.priority) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean add(Entity who, Move move) {
+        List<Move> moves = possibilities.get(who);
+        if (existBetterMove(moves, move)) {
+            return false;
+        }
+        moves.add(move);
+        return true;
     }
 
     void addRepairAction(Entity who, Entity what) {
@@ -251,8 +288,8 @@ public class MovesPicker {
         add(who, new Move(who, where, action, priority));
     }
 
-    void addAttackAction(Entity who, EntityAction action, int priority) {
-        add(who, new Move(who, who.getPosition(), action, priority));
+    boolean addAttackAction(Entity who, EntityAction action, int priority) {
+        return add(who, new Move(who, who.getPosition(), action, priority));
     }
 
     void addManualAction(Entity who, EntityAction action, int priority) {
