@@ -32,16 +32,17 @@ public class SpecialAgents {
 
     static private final Map<Entity, Profile> agents = new HashMap<>();
 
+    public static Position[] getPredefinedTargets(final int mapSize) {
+        return new Position[]{
+                new Position(mapSize * 4 / 5, mapSize / 5),
+                new Position(mapSize / 5, mapSize * 4 / 5)};
+    }
+
     static Profile createProfileById(final State state, int id) {
         if (id % 15 < 3) {
             final int mapSize = state.playerView.getMapSize();
-            Position targetPos;
-            if (State.rnd.nextBoolean()) {
-                targetPos = new Position(mapSize * 4 / 5, mapSize / 5);
-            } else {
-                targetPos = new Position(mapSize / 5, mapSize * 4 / 5);
-            }
-            return new Profile(targetPos);
+            Position[] targetPositions = getPredefinedTargets(mapSize);
+            return new Profile(targetPositions[State.rnd.nextInt(targetPositions.length)]);
         } else {
             return null;
         }

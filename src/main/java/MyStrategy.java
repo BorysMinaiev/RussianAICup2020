@@ -1,5 +1,6 @@
 import model.*;
 
+import java.util.HashMap;
 import java.util.List;
 
 import static model.EntityType.*;
@@ -27,7 +28,32 @@ public class MyStrategy {
         state.attackSomebody(turret);
     }
 
+    private boolean hackForTimeLimit(PlayerView playerView) {
+        int myScore = playerView.getMyPlayer().getScore();
+        int maxOtherScore = 0;
+        for (Player player : playerView.getPlayers()) {
+            if (player.getId() == playerView.getMyId()) {
+                continue;
+            }
+            maxOtherScore = Math.max(maxOtherScore, player.getScore());
+        }
+        if (playerView.getCurrentTick() > 300 && maxOtherScore * 3 < myScore) {
+            return true;
+        }
+        return false;
+    }
+
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
+        if (hackForTimeLimit(playerView)) {
+            Action action = new Action(new HashMap<>());
+            for (Entity entity : playerView.getEntities()) {
+                if (entity.getPlayerId() != null && entity.getPlayerId() == playerView.getMyId()) {
+                    action.getEntityActions().put(entity.getId(), EntityAction.createAttackAction(null,
+                            new AutoAttack(50, new EntityType[]{})));
+                }
+            }
+            return action;
+        }
         State state = new State(playerView, debugInterface);
         int myId = playerView.getMyId();
         RangedUnitStrategy rangedUnitStrategy = new RangedUnitStrategy(state);

@@ -482,6 +482,10 @@ public class State {
         movesPicker.addMoveAction(unit, where, priority);
     }
 
+    public void autoMove(Entity unit, Position where) {
+        movesPicker.addAutoMoveAction(unit, where);
+    }
+
     public boolean isOccupiedByBuilding(Position position) {
         return occupiedByBuildingsPositions.contains(position);
     }

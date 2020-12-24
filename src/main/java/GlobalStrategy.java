@@ -148,6 +148,7 @@ public class GlobalStrategy {
 
     final int MAX_BUILDERS = 100;
     final int MAX_RANGED_UNITS = 40;
+    final int REALLY_MAX_RANGED_UNITS = 100;
 
     private boolean needMoreBuilders() {
         final int buildersNum = state.myEntitiesCount.get(BUILDER_UNIT);
@@ -303,6 +304,9 @@ public class GlobalStrategy {
             distribution = distribution.noMoreBuilders();
         }
         if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {
+            distribution = distribution.noMoreRangedUnits();
+        }
+        if (state.myEntitiesCount.get(RANGED_UNIT) > REALLY_MAX_RANGED_UNITS) {
             distribution = distribution.noMoreRangedUnits();
         }
         return distribution.chooseWhatToBuild(state);

@@ -75,6 +75,11 @@ public class MovesPicker {
         add(unit, new Move(unit, where, action, priority));
     }
 
+    public void addAutoMoveAction(Entity unit, Position where) {
+        EntityAction action = EntityAction.createMoveAction(where, true, true);
+        add(unit, new Move(unit, unit.getPosition(), action, PRIORITY_GO_FOR_ATTACK));
+    }
+
     static class Move implements Comparable<Move> {
         final Entity who;
         final Position targetPos;

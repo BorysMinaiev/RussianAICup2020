@@ -40,6 +40,27 @@ public class RangedUnitStrategy {
         state.doNothing(unit);
     }
 
+    private static boolean isCorner(int x, int y, int mapSize) {
+        if (x == 0 || x == mapSize - 1) {
+            return y == 0 || y == mapSize - 1;
+        }
+        return false;
+    }
+
+    private boolean isPredefinedSetTarget(final Position pos) {
+        final int mapSize = state.playerView.getMapSize();
+        if (isCorner(pos.getX(), pos.getY(), mapSize)) {
+            return true;
+        }
+        Position[] specialAgents = SpecialAgents.getPredefinedTargets(mapSize);
+        for (Position spec : specialAgents) {
+            if (spec.distTo(pos) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean goToPosition(final Entity unit,
                                  final Position goToPos,
                                  int maxDist,
@@ -47,6 +68,12 @@ public class RangedUnitStrategy {
                                  boolean okGoThroughMyBuilders,
                                  boolean okGoUnderAttack,
                                  int priority) {
+        if (maxDist == Integer.MAX_VALUE) {
+            if (!isPredefinedSetTarget(goToPos)) {
+                state.autoMove(unit, goToPos);
+                return true;
+            }
+        }
         final int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
         List<Position> firstCellsInPath = state.map.findBestPathToTargetDijkstra(unit.getPosition(),
                 goToPos,
@@ -94,7 +121,13 @@ public class RangedUnitStrategy {
                     final Position movePos = moveAction.getTarget();
                     final Entity who = state.map.entitiesByPos[movePos.getX()][movePos.getY()];
 
-                    if (who != null && who.getPlayerId() == state.playerView.getMyId() && who.getEntityType() == EntityType.RANGED_UNIT) {
+                    if (who == null || who.getPlayerId() == null) {
+                        continue;
+                    }
+
+                    final int myPlayerId = state.playerView.getMyId();
+
+                    if (who.getPlayerId() == myPlayerId && who.getEntityType() == EntityType.RANGED_UNIT) {
                         final List<AttackAction> hisActions = state.getUnitAttackActions(who);
                         for (AttackAction attackAction : hisActions) {
                             final Entity resource = state.getEntityById(attackAction.getTarget());
@@ -164,7 +197,8 @@ public class RangedUnitStrategy {
                 if (closestEnemy != null) {
                     boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
                     if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
-                        int maxDist = inMyRegion ? Integer.MAX_VALUE : (CLOSE_ENOUGH * 2);
+                        // Integer.MAX_VALUE will try to use auto-attack :(
+                        int maxDist = inMyRegion ? (Integer.MAX_VALUE - 1) : (CLOSE_ENOUGH * 2);
                         if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, true)) {
                             continue;
                         }
@@ -177,29 +211,6 @@ public class RangedUnitStrategy {
             }
         }
         resolveEatingFoodPaths(allRangedUnits);
-    }
-
-    boolean goToRepair(final Entity unit) {
-        if (unit.getHealth() != 5) {
-            return false;
-        }
-        Entity closestBuilder = null;
-        int closestBuilderDist = 20;
-        for (Entity builder : state.myEntitiesByType.get(EntityType.BUILDER_UNIT)) {
-            int dist = builder.getPosition().distTo(unit.getPosition());
-            if (dist < closestBuilderDist) {
-                closestBuilderDist = dist;
-                closestBuilder = builder;
-            }
-        }
-        if (closestBuilder == null) {
-            return false;
-        }
-        boolean foundPath = goToPosition(unit, closestBuilder.getPosition(), closestBuilderDist * 2, false, false, false, MovesPicker.PRIORITY_REPAIR);
-        if (foundPath) {
-            System.err.println(unit + " is going for repair, dist = " + closestBuilderDist);
-        }
-        return foundPath;
     }
 
     static private List<Entity> filterProtections(List<Entity> allUnits, Set<Entity> used) {

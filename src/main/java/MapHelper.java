@@ -914,6 +914,7 @@ public class MapHelper {
     class PathsToResourcesFromBuilderBfsHandler implements BfsHandler {
         final List<Position> targetCells;
         final int maxOptions;
+        final int maxDist;
 
         int[] dx = Directions.dx;
         int[] dy = Directions.dy;
@@ -934,10 +935,11 @@ public class MapHelper {
             return false;
         }
 
-        PathsToResourcesFromBuilderBfsHandler(int maxOptions, final Position startPos) {
+        PathsToResourcesFromBuilderBfsHandler(int maxOptions, final Position startPos, final int maxDist) {
             targetCells = new ArrayList<>();
             this.maxOptions = maxOptions;
             this.startPos = startPos;
+            this.maxDist = maxDist;
         }
 
         @Override
@@ -969,12 +971,12 @@ public class MapHelper {
             if (isTargetCell(x, y) && canGoThrough(canGoThrough[x][y], underAttack[x][y], x, y, dist)) {
                 targetCells.add(new Position(x, y));
             }
-            return false;
+            return dist > maxDist;
         }
     }
 
-    public List<PathSuggestion> findPathsToResourcesFromBuilder(final Position startPos, final int maxOptions) {
-        PathsToResourcesFromBuilderBfsHandler handler = new PathsToResourcesFromBuilderBfsHandler(maxOptions, startPos);
+    public List<PathSuggestion> findPathsToResourcesFromBuilder(final Position startPos, final int maxOptions, final int maxDist) {
+        PathsToResourcesFromBuilderBfsHandler handler = new PathsToResourcesFromBuilderBfsHandler(maxOptions, startPos, maxDist);
         final List<Position> initialPositions = new ArrayList<>();
         initialPositions.add(startPos);
         final BfsQueue queue = findPathsToCells(initialPositions, handler);

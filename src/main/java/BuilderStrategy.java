@@ -329,12 +329,13 @@ public class BuilderStrategy {
 
 
     private static void findPathsToResources(final State state, final List<Entity> builders) {
-        final int MAX_OPTIONS = 20;
+        final int MAX_OPTIONS = 10;
+        final int MAX_DIST = 40;
         final Map<Position, Integer> compressedCoords = new HashMap<>();
         List<MapHelper.PathSuggestion>[] suggestionsForBuilders = new List[builders.size()];
         for (int i = 0; i < builders.size(); i++) {
             final Entity builder = builders.get(i);
-            final List<MapHelper.PathSuggestion> suggestions = state.map.findPathsToResourcesFromBuilder(builder.getPosition(), MAX_OPTIONS);
+            final List<MapHelper.PathSuggestion> suggestions = state.map.findPathsToResourcesFromBuilder(builder.getPosition(), MAX_OPTIONS, MAX_DIST);
             for (MapHelper.PathSuggestion suggestion : suggestions) {
                 final Position targetCell = suggestion.targetCell;
                 if (!compressedCoords.containsKey(targetCell)) {
