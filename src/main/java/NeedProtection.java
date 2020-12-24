@@ -102,9 +102,10 @@ public class NeedProtection {
         double sumXrequiresProtection;
         double sumYrequiresProtection;
         int cntRequiresProtection;
+        final Entity unit;
 
-        AtackingEnemy() {
-
+        AtackingEnemy(final Entity unit) {
+            this.unit = unit;
         }
 
         void addRequiresProtection(Entity myUnit) {
@@ -114,8 +115,9 @@ public class NeedProtection {
         }
 
         public Position getPosition() {
-            return new Position((int) Math.round(sumXrequiresProtection / cntRequiresProtection),
-                    (int) (Math.round(sumYrequiresProtection / cntRequiresProtection)));
+            return unit.getPosition();
+//            return new Position((int) Math.round(sumXrequiresProtection / cntRequiresProtection),
+//                    (int) (Math.round(sumYrequiresProtection / cntRequiresProtection)));
         }
     }
 
@@ -134,7 +136,7 @@ public class NeedProtection {
                 toProtect.add(entityToProtect);
                 for (Entity enemy : entityToProtect.enemies) {
                     if (!enemiesToAttack.containsKey(enemy)) {
-                        enemiesToAttack.put(enemy, new AtackingEnemy());
+                        enemiesToAttack.put(enemy, new AtackingEnemy(enemy));
                     }
                     AtackingEnemy atackingEnemy = enemiesToAttack.get(enemy);
                     atackingEnemy.addRequiresProtection(entity);
