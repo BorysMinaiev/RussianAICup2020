@@ -32,6 +32,10 @@ public class SpecialAgents {
         public boolean shouldAttack(EntityType entityType) {
             return !entityType.isBuilding();
         }
+
+        public boolean shouldProtect() {
+            return currentMissionId > 1;
+        }
     }
 
     static private final Map<Entity, Profile> agents = new HashMap<>();

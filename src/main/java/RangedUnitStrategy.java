@@ -243,20 +243,21 @@ public class RangedUnitStrategy {
      */
     private ProtectionsResult handleProtections(List<Entity> myUnits) {
         Set<Entity> used = new HashSet<>();
-        List<Entity> enemyUnits = new ArrayList<>(state.needProtection.enemiesToAttack);
+        List<Entity> enemyUnits = new ArrayList<>(state.needProtection.enemiesToAttack.keySet());
         MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + myUnits.size() + enemyUnits.size() + 1);
         MinCostMaxFlow.Edge[][] edges = new MinCostMaxFlow.Edge[myUnits.size()][];
         // TODO: optimize speed?
         for (int i = 0; i < myUnits.size(); i++) {
             Entity unit = myUnits.get(i);
             SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, unit);
-            if (profile != null) {
+            if (profile != null && !profile.shouldProtect()) {
                 continue;
             }
             minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
             edges[i] = new MinCostMaxFlow.Edge[enemyUnits.size()];
             for (int j = 0; j < enemyUnits.size(); j++) {
-                final int dist = enemyUnits.get(j).getPosition().distTo(myUnits.get(i).getPosition());
+                final Position expectedPosToProtect = state.needProtection.enemiesToAttack.get(enemyUnits.get(j)).getPosition();
+                final int dist = expectedPosToProtect.distTo(myUnits.get(i).getPosition());
                 long weight = MinCostMaxFlow.pathDistToWeight(dist);
                 edges[i][j] = minCostMaxFlow.addEdge(1 + i, 1 + myUnits.size() + j, 1, weight);
             }

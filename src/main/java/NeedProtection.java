@@ -98,12 +98,33 @@ public class NeedProtection {
         }
     }
 
+    static class AtackingEnemy {
+        double sumXrequiresProtection;
+        double sumYrequiresProtection;
+        int cntRequiresProtection;
+
+        AtackingEnemy() {
+
+        }
+
+        void addRequiresProtection(Entity myUnit) {
+            sumXrequiresProtection += myUnit.getPosition().getX();
+            sumYrequiresProtection += myUnit.getPosition().getY();
+            cntRequiresProtection++;
+        }
+
+        public Position getPosition() {
+            return new Position((int) Math.round(sumXrequiresProtection / cntRequiresProtection),
+                    (int) (Math.round(sumYrequiresProtection / cntRequiresProtection)));
+        }
+    }
+
     final List<ToPretect> toProtect;
-    final Set<Entity> enemiesToAttack;
+    final Map<Entity, AtackingEnemy> enemiesToAttack;
 
     NeedProtection(final State state) {
         toProtect = new ArrayList<>();
-        enemiesToAttack = new HashSet<>();
+        enemiesToAttack = new HashMap<>();
         for (Entity entity : state.myEntities) {
             if (!requiresProtection(entity.getEntityType())) {
                 continue;
@@ -111,7 +132,13 @@ public class NeedProtection {
             ToPretect entityToProtect = computeEntity(state, entity);
             if (entityToProtect != null) {
                 toProtect.add(entityToProtect);
-                enemiesToAttack.addAll(entityToProtect.enemies);
+                for (Entity enemy : entityToProtect.enemies) {
+                    if (!enemiesToAttack.containsKey(enemy)) {
+                        enemiesToAttack.put(enemy, new AtackingEnemy());
+                    }
+                    AtackingEnemy atackingEnemy = enemiesToAttack.get(enemy);
+                    atackingEnemy.addRequiresProtection(entity);
+                }
             }
         }
     }

@@ -209,7 +209,7 @@ public class Debug {
             addRectBorderToPoint(pos, pos.shift(size, size), points);
 
         }
-        for (Entity enemy : state.needProtection.enemiesToAttack) {
+        for (Entity enemy : state.needProtection.enemiesToAttack.keySet()) {
             addCellBorderToPoint(enemy.getPosition(), points);
         }
 
