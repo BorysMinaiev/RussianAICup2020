@@ -15,6 +15,15 @@ public class NeedProtection {
     final static int MAX_DIST_TO_CONSIDER = 30;
     final static int MAX_NEARBY_UNITS_TO_CONSIDER = 10;
 
+    static int updatedDist(final State state, Entity entity, Position pos) {
+        boolean myUnit = entity.getPlayerId() == state.playerView.getMyId();
+        int dist = entity.getPosition().distTo(pos);
+        if (!myUnit) {
+            dist -= 5;
+        }
+        return dist;
+    }
+
     // negative - needs protection!
     static ToPretect computeEntity(final State state, final Entity entityToProtect) {
         final Position pos = entityToProtect.getPosition();
@@ -40,8 +49,8 @@ public class NeedProtection {
         Collections.sort(nearbyUnits, new Comparator<Entity>() {
             @Override
             public int compare(Entity o1, Entity o2) {
-                int d1 = o1.getPosition().distTo(pos);
-                int d2 = o2.getPosition().distTo(pos);
+                int d1 = updatedDist(state, o1, pos);
+                int d2 = updatedDist(state, o2, pos);
                 if (d1 != d2) {
                     return Integer.compare(d1, d2);
                 }

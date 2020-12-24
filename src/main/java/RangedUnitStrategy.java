@@ -156,7 +156,11 @@ public class RangedUnitStrategy {
             List<Entity> toAttack = state.map.getEntitiesToAttack(unit.getPosition(), attackRange);
             Entity bestEntityToAttack = null;
             int smallestHealth = Integer.MAX_VALUE;
+            SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, unit);
             for (Entity enemyToAttack : toAttack) {
+                if (profile != null && !profile.shouldAttack(enemyToAttack.getEntityType())) {
+                    continue;
+                }
                 int expectedHealth = getExpectedHealth(enemyToAttack);
                 if (expectedHealth <= 0) {
                     continue;

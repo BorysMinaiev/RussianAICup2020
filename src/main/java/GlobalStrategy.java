@@ -139,7 +139,7 @@ public class GlobalStrategy {
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
         static ExpectedEntitiesDistribution START_WITH_BUILDERS = new ExpectedEntitiesDistribution(4, 0, 1, 0);
 
-        static ExpectedEntitiesDistribution TWO_TO_ONE = new ExpectedEntitiesDistribution(2, 0, 1, 0);
+        static ExpectedEntitiesDistribution TWO_TO_ONE = new ExpectedEntitiesDistribution(4, 0, 3, 0);
         static ExpectedEntitiesDistribution ONLY_BUILDERS = new ExpectedEntitiesDistribution(1, 0, 0, 0);
         static ExpectedEntitiesDistribution ALMOST_RANGED = new ExpectedEntitiesDistribution(1, 0, 2, 0);
 
@@ -303,9 +303,9 @@ public class GlobalStrategy {
         if (shouldNotBuildMoreBuilders()) {
             distribution = distribution.noMoreBuilders();
         }
-        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {
-            distribution = distribution.noMoreRangedUnits();
-        }
+//        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {
+//            distribution = distribution.noMoreRangedUnits();
+//        }
         if (state.myEntitiesCount.get(RANGED_UNIT) > REALLY_MAX_RANGED_UNITS) {
             distribution = distribution.noMoreRangedUnits();
         }

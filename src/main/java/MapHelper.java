@@ -21,7 +21,8 @@ public class MapHelper {
         MY_BUILDER,
         MY_WORKING_BUILDER,
         MY_ATTACKING_UNIT,
-        MY_EATING_FOOD_RANGED_UNIT
+        MY_EATING_FOOD_RANGED_UNIT,
+        ENEMY_BUILDING
     }
 
     enum UNDER_ATTACK {
@@ -69,7 +70,6 @@ public class MapHelper {
 
     private CAN_GO_THROUGH computeCanGoThrough(final Entity entity) {
         if (entity.getPlayerId() == null) {
-            // TODO: potentially I can...
             return CAN_GO_THROUGH.FOOD;
         }
         if (entity.getPlayerId() == myPlayerId) {
@@ -81,7 +81,11 @@ public class MapHelper {
             }
             return CAN_GO_THROUGH.EMPTY_CELL;
         } else {
-            return CAN_GO_THROUGH.EMPTY_CELL;
+            if (entity.getEntityType().isBuilding()) {
+                return CAN_GO_THROUGH.ENEMY_BUILDING;
+            } else {
+                return CAN_GO_THROUGH.EMPTY_CELL;
+            }
         }
     }
 
@@ -505,7 +509,7 @@ public class MapHelper {
                 case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT -> true;
                 case FOOD -> okEatFood;
                 case MY_BUILDER, MY_WORKING_BUILDER -> okGoThroughMyBuilders;
-                case MY_BUILDING -> false;
+                case MY_BUILDING, ENEMY_BUILDING -> false;
             };
         }
 
@@ -522,7 +526,7 @@ public class MapHelper {
         public int getEdgeCost(CAN_GO_THROUGH type) {
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
-                case UNKNOWN, FOOD -> 2;
+                case UNKNOWN, FOOD, ENEMY_BUILDING -> 2;
             };
         }
 
@@ -546,7 +550,7 @@ public class MapHelper {
         public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             // TODO: think about it?
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT -> true;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, ENEMY_BUILDING -> true;
                 case MY_BUILDING, FOOD, MY_BUILDER, MY_WORKING_BUILDER -> false;
             };
         }
@@ -572,7 +576,7 @@ public class MapHelper {
             }
             return switch (type) {
                 case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER, ENEMY_BUILDING -> false;
             };
         }
 
@@ -618,7 +622,7 @@ public class MapHelper {
             }
             return switch (type) {
                 case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER, ENEMY_BUILDING -> false;
             };
         }
 
@@ -726,7 +730,7 @@ public class MapHelper {
     public static boolean canGoThereOnCurrentTurn(CAN_GO_THROUGH type, boolean okToAttackFood, boolean okGoThroughMyBuilders) {
         return switch (type) {
             case EMPTY_CELL, UNKNOWN -> true;
-            case MY_BUILDING, MY_ATTACKING_UNIT -> false;
+            case MY_BUILDING, MY_ATTACKING_UNIT, ENEMY_BUILDING -> false;
             case MY_BUILDER, MY_WORKING_BUILDER -> okGoThroughMyBuilders;
             case FOOD, MY_EATING_FOOD_RANGED_UNIT -> okToAttackFood;
         };
@@ -954,12 +958,12 @@ public class MapHelper {
             if (dist == 1) {
                 return switch (type) {
                     case EMPTY_CELL, UNKNOWN, MY_BUILDER -> true;
-                    case MY_BUILDING, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_WORKING_BUILDER -> false;
+                    case MY_BUILDING, FOOD, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_WORKING_BUILDER, ENEMY_BUILDING -> false;
                 };
             }
             return switch (type) {
                 case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING, FOOD, MY_WORKING_BUILDER -> false;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER, ENEMY_BUILDING -> false;
             };
         }
 
