@@ -430,7 +430,7 @@ public class State {
             throw new AssertionError(who + " can't build " + what);
         }
         if (!isEnoughResourcesToBuild(what)) {
-            throw new AssertionError("Not enough money to build :(");
+//            throw new AssertionError("Not enough money to build :(");
         }
         if (map.entitiesByPos[where.getX()][where.getY()] != null) {
 //            throw new AssertionError("Build in a strange pos?");

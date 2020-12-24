@@ -99,7 +99,7 @@ public class Debug {
         if (!Debug.PRINT_CURRENT_BUILD_TARGET) {
             return;
         }
-        EntityType currentBuildTarget = state.globalStrategy.whatNextToBuild();
+        WantToBuild currentBuildTarget = state.globalStrategy.whatNextToBuild();
         printDebugText(state, debugInterface, "want build: " + currentBuildTarget, Color.YELLOW);
         state.debugPos++;
     }

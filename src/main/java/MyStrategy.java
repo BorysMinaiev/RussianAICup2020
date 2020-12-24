@@ -17,9 +17,12 @@ public class MyStrategy {
     }
 
     void spawnNewUnits(final State state, final Entity building) {
-        EntityType nextToBuild = state.globalStrategy.whatNextToBuild();
-        if (state.checkCanBuild(building.getEntityType(), nextToBuild)) {
-            spawnUnit(state, building, nextToBuild);
+        WantToBuild wantToBuild = state.globalStrategy.whatNextToBuild();
+        List<EntityType> unitsToBuild = wantToBuild.whichUnits();
+        for (EntityType nextToBuild : unitsToBuild) {
+            if (state.checkCanBuild(building.getEntityType(), nextToBuild)) {
+                spawnUnit(state, building, nextToBuild);
+            }
         }
     }
 

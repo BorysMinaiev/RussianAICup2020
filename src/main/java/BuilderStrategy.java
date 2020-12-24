@@ -107,6 +107,20 @@ public class BuilderStrategy {
         state.map.updateCellCanGoThrough(pos, MapHelper.CAN_GO_THROUGH.MY_WORKING_BUILDER);
     }
 
+    public static boolean canMineRightNow(final State state, final Entity builder) {
+        final Position pos = builder.getPosition();
+        int[] dx = Directions.dx;
+        int[] dy = Directions.dy;
+        for (int it = 0; it < dx.length; it++) {
+            int nx = pos.getX() + dx[it];
+            int ny = pos.getY() + dy[it];
+            if (state.map.canMineThisCell(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static boolean mineRightNow(final State state, final Entity builder) {
         final Position pos = builder.getPosition();
         int[] dx = Directions.dx;
@@ -211,12 +225,14 @@ public class BuilderStrategy {
             }
         }
 
-        EntityType toBuild = state.globalStrategy.whatNextToBuild();
-        boolean needBuildSmth = toBuild != null && toBuild.isBuilding() && state.isEnoughResourcesToBuild(toBuild);
-        if (needBuildSmth && !canBuildOrMineResources.isEmpty()) {
-            final Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild);
-            if (builder != null) {
-                canBuildOrMineResources.remove(builder);
+        WantToBuild wantToBuild = state.globalStrategy.whatNextToBuild();
+        List<EntityType> buildingsToBuild = wantToBuild.whichBuildings();
+        for (EntityType toBuild : buildingsToBuild) {
+            if (!canBuildOrMineResources.isEmpty()) {
+                final Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild);
+                if (builder != null) {
+                    canBuildOrMineResources.remove(builder);
+                }
             }
         }
         List<Entity> shouldGoMine = new ArrayList<>();

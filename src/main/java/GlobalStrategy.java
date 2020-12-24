@@ -3,9 +3,7 @@ import model.EntityType;
 import model.Player;
 import model.Position;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static model.EntityType.*;
 
@@ -112,11 +110,25 @@ public class GlobalStrategy {
             return false;
         }
 
-        EntityType chooseWhatToBuild(final State state) {
+        static class BuildOption implements Comparable<BuildOption> {
+            final EntityType entityType;
+            final double coef;
+
+            public BuildOption(EntityType entityType, double coef) {
+                this.entityType = entityType;
+                this.coef = coef;
+            }
+
+            @Override
+            public int compareTo(BuildOption o) {
+                return Double.compare(coef, o.coef);
+            }
+        }
+
+        List<EntityType> chooseWhatToBuild(final State state) {
             // 0 -> not enough
             // 787788 -> too much
-            double smallestCoef = Double.MAX_VALUE;
-            EntityType best = null;
+            List<BuildOption> options = new ArrayList<>();
             for (Map.Entry<EntityType, Integer> entry : count.entrySet()) {
                 int currentCnt = state.myEntitiesCount.get(entry.getKey());
                 if (entry.getValue() == 0) {
@@ -126,12 +138,14 @@ public class GlobalStrategy {
                     continue;
                 }
                 double curCoef = currentCnt / (double) entry.getValue();
-                if (curCoef < smallestCoef) {
-                    smallestCoef = curCoef;
-                    best = entry.getKey();
-                }
+                options.add(new BuildOption(entry.getKey(), curCoef));
             }
-            return best;
+            Collections.sort(options);
+            List<EntityType> res = new ArrayList<>();
+            for (BuildOption option : options) {
+                res.add(option.entityType);
+            }
+            return res;
         }
 
 
@@ -222,13 +236,11 @@ public class GlobalStrategy {
     }
 
 
-    EntityType cachedWhatToBuild;
-    boolean whatToBuildWasCached;
+    WantToBuild cachedWhatToBuild;
 
-    EntityType whatNextToBuild() {
-        if (!whatToBuildWasCached) {
+    WantToBuild whatNextToBuild() {
+        if (cachedWhatToBuild == null) {
             cachedWhatToBuild = whatNextToBuildWithoutCache();
-            whatToBuildWasCached = true;
         }
         return cachedWhatToBuild;
     }
@@ -271,22 +283,23 @@ public class GlobalStrategy {
         return state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS;
     }
 
-    EntityType whatNextToBuildWithoutCache() {
+    WantToBuild whatNextToBuildWithoutCache() {
+        WantToBuild wantToBuild = new WantToBuild(state);
         EntityType toProtect = needToProtectSomething();
         if (toProtect != null && hasEnoughHousesToBuildUnits()) {
-            return toProtect;
+            wantToBuild.add(toProtect);
         }
         if (needRangedHouse() && state.playerView.getCurrentTick() > FIRST_TICK_FOR_RANGED_BASE) {
-            return RANGED_BASE;
+            wantToBuild.add(RANGED_BASE);
         }
         if (needBuilderBase()) {
-            return BUILDER_BASE;
+            wantToBuild.add(BUILDER_BASE);
         }
         if (needMoreHouses()) {
-            return HOUSE;
+            wantToBuild.add(HOUSE);
         }
-        if (needMoreBuilders()) {
-            return BUILDER_UNIT;
+        if (needMoreBuilders() && hasEnoughHousesToBuildUnits()) {
+            wantToBuild.add(BUILDER_UNIT);
         }
         final int buildersNum = state.myEntitiesByType.get(BUILDER_UNIT).size();
         final int rangedNum = state.myEntitiesByType.get(RANGED_UNIT).size();
@@ -309,8 +322,12 @@ public class GlobalStrategy {
         if (state.myEntitiesCount.get(RANGED_UNIT) > REALLY_MAX_RANGED_UNITS) {
             distribution = distribution.noMoreRangedUnits();
         }
-        return distribution.chooseWhatToBuild(state);
+        List<EntityType> distRes = distribution.chooseWhatToBuild(state);
+        for (EntityType entityType : distRes) {
+            wantToBuild.add(entityType);
+        }
         // TODO: make it smarter
+        return wantToBuild;
     }
 
     private boolean muchResources() {
