@@ -31,8 +31,8 @@ public class GlobalStrategy {
     }
 
     private boolean expectedNeedHouse(int currentUsage, int currentExpected) {
-        if (currentUsage < 10) {
-            return currentExpected < currentUsage + 3;
+        if (currentUsage <= 10) {
+            return false;
         }
         if (currentUsage < 20) {
             return currentExpected < currentUsage + 5;

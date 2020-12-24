@@ -29,10 +29,10 @@ public class BuilderStrategy {
         List<Position> allPossibleMoves = state.getAllPossibleUnitMoves(builder, false, true);
         Position bestPosToGo = builder.getPosition();
         double currentAttackScore = state.attackedByPos.getOrDefault(bestPosToGo, 0.0);
-        Collections.shuffle(allPossibleMoves, state.rnd);
+        Collections.shuffle(allPossibleMoves, State.rnd);
         for (Position check : allPossibleMoves) {
             double scoreHere = state.attackedByPos.getOrDefault(check, 0.0);
-            if (scoreHere < currentAttackScore) {
+            if (scoreHere <= currentAttackScore) {
                 currentAttackScore = scoreHere;
                 bestPosToGo = check;
             }
@@ -45,21 +45,26 @@ public class BuilderStrategy {
     }
 
     static class BuildOption implements Comparable<BuildOption> {
-        final Entity builder;
         final Position where;
         final int occupiedCellsNearby;
         final int distToZero;
-        final int distToBuilder;
+        final int ticksToBuild;
         final int score;
+        int maxDistToBuilder;
+        Entity builderReadyToBuild;
+        final List<BuilderWithDist> builderWithDists;
 
         @Override
         public String toString() {
             return "BuildOption{" +
-                    "builder=" + builder +
-                    ", where=" + where +
+                    "where=" + where +
                     ", occupiedCellsNearby=" + occupiedCellsNearby +
                     ", distToZero=" + distToZero +
-                    ", distToBuilder=" + distToBuilder +
+                    ", ticksToBuild=" + ticksToBuild +
+                    ", score=" + score +
+                    ", maxDistToBuilder=" + maxDistToBuilder +
+                    ", builderReadyToBuild=" + builderReadyToBuild +
+                    ", builderWithDists=" + builderWithDists +
                     '}';
         }
 
@@ -85,15 +90,23 @@ public class BuilderStrategy {
             return occupiedCellsNearby;
         }
 
-        BuildOption(final State state, Entity builder, Position where, EntityType what, final int distToBuilder) {
-            this.builder = builder;
+        BuildOption(final State state, List<BuilderWithDist> builderWithDists, Position where, EntityType what) {
             this.where = where;
+            this.builderWithDists = builderWithDists;
             final List<Boolean> occupiedCellsNearby = computeBuildingOrResourcesNearby(state, what);
             this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
             final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
-            this.distToBuilder = distToBuilder;
-            this.score = (distToBuilder * 4 + occupiedCellsNearby.size()) * 1000 + distToZero;
+            this.ticksToBuild = computeTicksToBuild(state, builderWithDists, what);
+            // TODO: change constant?
+            this.score = (ticksToBuild * 4 + occupiedCellsNearby.size()) * 1000 + distToZero;
+            builderReadyToBuild = null;
+            for (BuilderWithDist builderWithDist : builderWithDists) {
+                if (builderWithDist.dist == 1) {
+                    builderReadyToBuild = builderWithDist.builder;
+                }
+                maxDistToBuilder = Math.max(maxDistToBuilder, builderWithDist.dist);
+            }
         }
 
         @Override
@@ -283,18 +296,71 @@ public class BuilderStrategy {
         return filteredPositions;
     }
 
-    private static Entity closestBuilder(final State state, Position pos, EntityType what, List<Entity> builders) {
-        int bDist = Integer.MAX_VALUE;
-        Entity bBuilder = null;
+    static class BuilderWithDist implements Comparable<BuilderWithDist> {
+        final Entity builder;
+        final int dist;
+
+        public BuilderWithDist(Entity builder, int dist) {
+            this.builder = builder;
+            this.dist = dist;
+        }
+
+        @Override
+        public int compareTo(BuilderWithDist o) {
+            return Integer.compare(dist, o.dist);
+        }
+
+        @Override
+        public String toString() {
+            return "BuilderWithDist{" +
+                    "builder=" + builder +
+                    ", dist=" + dist +
+                    '}';
+        }
+    }
+
+    private static List<BuilderWithDist> closestBuildersFast(final State state, Position pos, EntityType what, List<Entity> builders, int nBuilders) {
+        List<BuilderWithDist> options = new ArrayList<>();
         for (Entity builder : builders) {
             final Position builderPos = builder.getPosition();
             int dist = CellsUtils.distBetweenEntityTypeAndPos(state, pos, what, builderPos.getX(), builderPos.getY());
-            if (dist < bDist) {
-                bDist = dist;
-                bBuilder = builder;
+            options.add(new BuilderWithDist(builder, dist));
+        }
+        Collections.sort(options);
+        while (options.size() > nBuilders) {
+            options.remove(options.size() - 1);
+        }
+        return options;
+    }
+
+    private static List<BuilderWithDist> closestBuildersSlow(final State state, Position where, EntityType what, List<Entity> builders, int nBuilders, int maxDistToBuilder) {
+        final List<Position> initialPositions = allPositionsOfEntityType(state, where, what);
+        List<BuilderWithDist> options = new ArrayList<>();
+        MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
+                maxDistToBuilder * 2, nBuilders);
+        for (Map.Entry<Entity, Integer> entry : pathsForBuilders.dists.entrySet()) {
+            options.add(new BuilderWithDist(entry.getKey(), entry.getValue()));
+        }
+        return options;
+    }
+
+    private static int computeTicksToBuild(final State state, List<BuilderWithDist> buildersWithDist, EntityType entityType) {
+        final int INITIAL_HEALTH = 5;
+        int health = state.getEntityTypeProperties(entityType).getMaxHealth() - INITIAL_HEALTH;
+        int left = 0, right = 100;
+        while (right - left > 1) {
+            int mid = (left + right) >> 1;
+            int canProduceHealth = 0;
+            for (BuilderWithDist builderWithDist : buildersWithDist) {
+                canProduceHealth += Math.max(0, mid - builderWithDist.dist);
+            }
+            if (canProduceHealth >= health) {
+                right = mid;
+            } else {
+                left = mid;
             }
         }
-        return bBuilder;
+        return right;
     }
 
     private static Entity tryToBuildSomething(State state, List<Entity> builders, EntityType what) {
@@ -305,28 +371,37 @@ public class BuilderStrategy {
         } else if (what == RANGED_BASE) {
             allPossiblePositions = filterRangedBasePosition(state, allPossiblePositions);
         }
+        int nBuilders = getNumWorkersToHelpRepair(what);
         for (Position pos : allPossiblePositions) {
-            final Entity builder = closestBuilder(state, pos, what, builders);
-            if (builder == null) {
+            final List<BuilderWithDist> buildersWithDist = closestBuildersFast(state, pos, what, builders, nBuilders);
+            if (buildersWithDist.isEmpty()) {
                 continue;
             }
-            final Position builderPos = builder.getPosition();
-            final int distToBuilder = CellsUtils.distBetweenEntityTypeAndPos(state, pos, what, builderPos.getX(), builderPos.getY());
-            BuildOption buildOption = new BuildOption(state, builder, pos, what, distToBuilder);
+            BuildOption buildOption = new BuildOption(state, buildersWithDist, pos, what);
             buildOptions.add(buildOption);
         }
         Collections.sort(buildOptions);
+        final int CHECK_BUILD_OPTIONS = 10;
+        List<BuildOption> optionsSmarter = new ArrayList<>();
+        for (int i = 0; i < CHECK_BUILD_OPTIONS && i < buildOptions.size(); i++) {
+            final Position pos = buildOptions.get(i).where;
+            final int maxDistToBuilder = buildOptions.get(i).maxDistToBuilder;
+            final List<BuilderWithDist> builderWithDist = closestBuildersSlow(state, pos, what, builders, nBuilders, maxDistToBuilder);
+            optionsSmarter.add(new BuildOption(state, builderWithDist, pos, what));
+        }
+        buildOptions = optionsSmarter;
+        Collections.sort(buildOptions);
         for (BuildOption option : buildOptions) {
-            if (option.distToBuilder == 1) {
-                state.buildSomething(option.builder, what, option.where, MovesPicker.PRIORITY_BUILD);
-                markBuilderAsWorking(state, option.builder);
-                return option.builder;
+            if (option.builderReadyToBuild != null) {
+                state.buildSomething(option.builderReadyToBuild, what, option.where, MovesPicker.PRIORITY_BUILD);
+                markBuilderAsWorking(state, option.builderReadyToBuild);
+                return option.builderReadyToBuild;
             } else {
                 final List<Position> initialPositions = allPositionsOfEntityType(state, option.where, what);
                 // TODO: send more than one worker?
                 // TODO: optimize position by number of workers nearby
                 MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
-                        option.distToBuilder * 2, 1);
+                        option.maxDistToBuilder * 2, 1);
                 if (pathsForBuilders.firstCellsInPath.isEmpty()) {
                     continue;
                 }

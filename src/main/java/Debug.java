@@ -297,6 +297,10 @@ public class Debug {
                     targetPos = state.getEntityById(targetId).getPosition();
                 }
             }
+            BuildAction buildAction = entityAction.getBuildAction();
+            if (buildAction != null) {
+                targetPos = buildAction.getPosition();
+            }
             if (targetPos != null) {
                 Position from = entity.getPosition();
                 drawArrow(linePoints, new Vec2Float(from.getX() + 0.5f, from.getY() + 0.5f),

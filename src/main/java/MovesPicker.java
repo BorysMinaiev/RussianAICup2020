@@ -10,13 +10,13 @@ public class MovesPicker {
     public final static int PRIORITY_GO_FOR_ATTACK = 11;
     public final static int PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS = 15;
     public final static int PRIORITY_BUILD = 30;
-    public final static int PRIORITY_REPAIR = 10;
+    public final static int PRIORITY_REPAIR = 35;
     public final static int PRIORITY_ATTACK = 100;
     public final static int PRIORITY_ATTACK_FOOD = 99;
     public final static int PRIORITY_SMALL = 1;
     public final static int PRIORITY_MAX = 1000;
     public final static int PRIORITY_GO_AWAY_FROM_ATTACK = 14;
-    public final static int PRIORITY_GO_TO_REPAIR = 12;
+    public final static int PRIORITY_GO_TO_REPAIR = 40;
     public final static int PRIORITY_GO_TO_BUILD = 5;
     public final static int PRIORITY_GO_TO_MINE = 5;
     public static final int PRIORITY_GO_TO_UNBLOCK = 40;

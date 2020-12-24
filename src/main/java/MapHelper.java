@@ -600,14 +600,14 @@ public class MapHelper {
 
     static class PathToBuildersBfsHandler implements BfsHandler {
         final int maxDist;
-        final List<Entity> builders;
+        final Set<Entity> builders;
         final int needBuilders;
         final State state;
 
 
         public PathToBuildersBfsHandler(int maxDist, int needBuilders, State state) {
             this.maxDist = maxDist;
-            this.builders = new ArrayList<>();
+            this.builders = new HashSet<>();
             this.needBuilders = needBuilders;
             this.state = state;
         }
@@ -881,9 +881,11 @@ public class MapHelper {
 
     class PathsFromBuilders {
         final Map<Entity, List<Position>> firstCellsInPath;
+        final Map<Entity, Integer> dists;
 
         public PathsFromBuilders(final PathToBuildersBfsHandler handler, BfsQueue queue) {
             this.firstCellsInPath = new HashMap<>();
+            this.dists = new HashMap<>();
             for (Entity builder : handler.builders) {
                 // TODO: fix target cell
                 final Position pos = builder.getPosition();
@@ -892,7 +894,10 @@ public class MapHelper {
                 if (firstCell.isEmpty()) {
                     continue;
                 }
+                final Position someFirstCell = firstCell.get(0);
+                final int realDist = 1 + queue.getDist(someFirstCell.getX(), someFirstCell.getY());
                 firstCellsInPath.put(builder, firstCell);
+                dists.put(builder, realDist);
             }
         }
     }
