@@ -486,7 +486,8 @@ public class MapHelper {
 
         @Override
         public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
-            if (dist <= skipLastNCells) {
+            // < - because otherwise we go under turrets
+            if (dist < skipLastNCells) {
                 return true;
             }
             switch (underAttack) {
