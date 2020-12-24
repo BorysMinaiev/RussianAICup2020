@@ -2,7 +2,7 @@ import json
 import subprocess
 
 v1 = 17
-v2 = 18
+v2 = 19
 
 
 def run_one_game():

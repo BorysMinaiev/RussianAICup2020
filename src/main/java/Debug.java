@@ -331,7 +331,7 @@ public class Debug {
     }
 
     private static Vec2Float toV2float(Position pos) {
-        return new Vec2Float(pos.getX(), pos.getY());
+        return new Vec2Float(pos.getX() + 0.5f, pos.getY() + 0.5f);
     }
 
     // TODO: remove it?

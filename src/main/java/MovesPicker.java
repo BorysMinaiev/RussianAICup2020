@@ -4,7 +4,7 @@ import java.util.*;
 
 public class MovesPicker {
     public final static int PRIORITY_MINE_RESOURCES = 10;
-    public final static int PRIORITY_NOTHING = -787;
+    public final static int PRIORITY_NOTHING = 0;
     public final static int PRIORITY_GO_TO_PROTECT = 200;
     public final static int PRIORITY_BUILDER_BLOCKED_GO_AWAY = 15;
     public final static int PRIORITY_GO_FOR_ATTACK = 11;
@@ -92,6 +92,9 @@ public class MovesPicker {
             this.targetPos = targetPos;
             this.action = action;
             this.priority = priority;
+            if (priority < 0) {
+                throw new AssertionError("Negative priority?");
+            }
         }
 
         @Override
@@ -158,6 +161,101 @@ public class MovesPicker {
     Map<Entity, List<Move>> possibilities;
     Map<Entity, Move> movesByEntity;
 
+    class MatchingFinder {
+        final Map<Position, Integer> positionIds;
+        final List<Entity> myUnits;
+        final List<Move> allMoves;
+        final Map<Entity, Integer> posOfUnit;
+        final Map<Integer, Integer> whoWasThere;
+        final Move[] unitMove;
+        final boolean[] usedPositions;
+        final int[] seen;
+        int seenIter;
+
+        public MatchingFinder(Map<Position, Integer> positionIds, List<Entity> myUnits, List<Move> allMoves, Map<Entity, Integer> posOfUnit) {
+            this.positionIds = positionIds;
+            this.myUnits = myUnits;
+            this.allMoves = allMoves;
+            this.posOfUnit = posOfUnit;
+            unitMove = new Move[myUnits.size()];
+            usedPositions = new boolean[positionIds.size()];
+            seen = new int[posOfUnit.size()];
+            whoWasThere = new HashMap<>();
+            for (Entity unit : myUnits) {
+                whoWasThere.put(positionIds.get(unit.getPosition()), posOfUnit.get(unit));
+            }
+        }
+
+        boolean dfs(Entity unit, boolean firstInPath) {
+            int unitPos = posOfUnit.get(unit);
+            if (unitMove[unitPos] != null) {
+                return false;
+            }
+            if (firstInPath) {
+                seenIter++;
+            }
+            if (seen[unitPos] == seenIter) {
+                return false;
+            }
+            seen[unitPos] = seenIter;
+            int curPosId = positionIds.get(unit.getPosition());
+            List<Move> checkMoves = new ArrayList<>(possibilities.get(unit));
+            if (firstInPath) {
+                Collections.sort(checkMoves);
+            } else {
+                Collections.sort(checkMoves, new Comparator<Move>() {
+                    @Override
+                    public int compare(Move o1, Move o2) {
+                        int c1 = Integer.compare(o1.priorityRelativeToTargetCell, o2.priorityRelativeToTargetCell);
+                        if (c1 != 0) {
+                            return -c1;
+                        }
+                        return o1.compareTo(o2);
+                    }
+                });
+            }
+            for (Move move : checkMoves) {
+                int targetPosId = positionIds.get(move.targetPos);
+                if (targetPosId == curPosId) {
+                    if (firstInPath) {
+                        unitMove[unitPos] = move;
+                        return true;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    if (usedPositions[targetPosId]) {
+                        Integer wasThere = whoWasThere.get(targetPosId);
+                        if (wasThere == null || unitMove[wasThere] != null) {
+                            continue;
+                        }
+                        if (dfs(myUnits.get(wasThere), false)) {
+                            usedPositions[targetPosId] = true;
+                            usedPositions[curPosId] = false;
+                            unitMove[unitPos] = move;
+                            return true;
+                        }
+                    } else {
+                        usedPositions[targetPosId] = true;
+                        usedPositions[curPosId] = false;
+                        unitMove[unitPos] = move;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private Move[] findMatching() {
+            for (Map.Entry<Entity, List<Move>> entry : possibilities.entrySet()) {
+                usedPositions[positionIds.get(entry.getKey().getPosition())] = true;
+            }
+            for (Move move : allMoves) {
+                dfs(move.who, true);
+            }
+            return unitMove;
+        }
+    }
 
     Action buildActions() {
         Action actions = new Action(new HashMap<>());
@@ -199,51 +297,8 @@ public class MovesPicker {
         for (Move move : allMoves) {
             move.priorityRelativeToTargetCell = move.priority - maxScoreForCell[positionIds.get(move.targetPos)] / 2;
         }
-
-        // TODO: smarter comparator?
-        allMoves.sort(new Comparator<Move>() {
-            @Override
-            public int compare(Move o1, Move o2) {
-                int cmp1 = -Integer.compare(o1.priorityRelativeToTargetCell, o2.priorityRelativeToTargetCell);
-                if (cmp1 != 0) {
-                    return cmp1;
-                }
-                return o1.compareTo(o2);
-            }
-        });
-        boolean[] usedPosition = new boolean[positionIds.size()];
-        for (Map.Entry<Entity, List<Move>> entry : possibilities.entrySet()) {
-            usedPosition[positionIds.get(entry.getKey().getPosition())] = true;
-        }
-        // TODO: optimize?
-        Move[] unitMove = new Move[myUnits.size()];
-        int iterCheck = 0;
-        while (true) {
-            if (iterCheck++ > 10000) {
-                throw new AssertionError();
-            }
-            boolean changed = false;
-            for (Move move : allMoves) {
-                int unitPos = posOfUnit.get(move.who);
-                if (unitMove[unitPos] != null) {
-                    continue;
-                }
-                int curPosId = positionIds.get(move.who.getPosition());
-                int targetPosId = positionIds.get(move.targetPos);
-                if (targetPosId != curPosId && usedPosition[targetPosId]) {
-                    continue;
-                }
-                // apply move
-                unitMove[unitPos] = move;
-                usedPosition[curPosId] = false;
-                usedPosition[targetPosId] = true;
-                changed = true;
-            }
-            if (!changed) {
-                break;
-            }
-        }
-
+        Collections.sort(allMoves);
+        Move[] unitMove = new MatchingFinder(positionIds, myUnits, allMoves, posOfUnit).findMatching();
         movesByEntity = new HashMap<>();
         Set<Position> usedTargetPos = new HashSet<>();
         for (int i = 0; i < unitMove.length; i++) {
@@ -290,7 +345,7 @@ public class MovesPicker {
     void addBuildAction(Entity who, EntityType what, Position where, int priority) {
         EntityAction action = EntityAction.createBuildAction(what, where);
         // TODO: buildings has size > 1!
-        add(who, new Move(who, where, action, priority));
+        add(who, new Move(who, where, action, Math.max(PRIORITY_SMALL, priority)));
     }
 
     boolean addAttackAction(Entity who, EntityAction action, int priority) {

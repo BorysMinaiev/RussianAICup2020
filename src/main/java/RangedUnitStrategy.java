@@ -277,7 +277,7 @@ public class RangedUnitStrategy {
                 if (edge.flow > 0) {
                     final Position targetCell = enemyUnits.get(j).getPosition();
                     // TODO: MAX_VALUE, STAY?
-                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE, true, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
+                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE - 1, true, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
                         blocked(myUnit);
                     }
                     used.add(myUnit);
