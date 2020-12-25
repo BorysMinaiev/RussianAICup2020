@@ -386,17 +386,7 @@ public class MapHelper {
         return enemies.get(0);
     }
 
-    private int compressCoord(int x, int y) {
-        return x + y * entitiesByPos.length;
-    }
 
-    private int extractXFromCompressedCoord(int coords) {
-        return coords % entitiesByPos.length;
-    }
-
-    private int extractYFromCompressedCoord(int coords) {
-        return coords / entitiesByPos.length;
-    }
 
     static class Dir {
         final int dx, dy;
@@ -679,7 +669,7 @@ public class MapHelper {
             currentVisitedIter++;
 
             for (Position pos : initialPositions) {
-                int compressedPos = compressCoord(pos.getX(), pos.getY());
+                int compressedPos = CompressedCoords.compress(pos);
                 visit(compressedPos, 0);
             }
         }
@@ -689,8 +679,8 @@ public class MapHelper {
 
             while (qIt < qSz) {
                 int compressedCoord = queue[qIt++];
-                int x = extractXFromCompressedCoord(compressedCoord);
-                int y = extractYFromCompressedCoord(compressedCoord);
+                int x = CompressedCoords.extractX(compressedCoord);
+                int y = CompressedCoords.extractY(compressedCoord);
                 Dir[] dirs = dirsUp;
                 final int nextDist = dist[compressedCoord] + 1;
                 for (int it = 0; it < dirs.length; it++) {
@@ -699,7 +689,7 @@ public class MapHelper {
                     if (!insideMap(nx, ny)) {
                         continue;
                     }
-                    int nextCompressedCoord = compressCoord(nx, ny);
+                    int nextCompressedCoord = CompressedCoords.compress(nx, ny);
                     if (isVisited(nextCompressedCoord)) {
                         continue;
                     }
@@ -715,7 +705,7 @@ public class MapHelper {
         }
 
         public int getDist(int x, int y) {
-            int compressedCoord = compressCoord(x, y);
+            int compressedCoord = CompressedCoords.compress(x, y);
             if (visited[compressedCoord] != currentVisitedIter) {
                 return Integer.MAX_VALUE;
             }
@@ -835,7 +825,7 @@ public class MapHelper {
             return new ArrayList<>();
         }
         final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere, okGoThroughMyBuilders, okGoUnderAttack, okEatFood);
-        QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist);
+        QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist, state.playerView.getMapSize());
         return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true, okGoThroughMyBuilders);
     }
 

@@ -1,6 +1,8 @@
 import model.Position;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 public class Dijkstra {
     final MapHelper mapHelper;
@@ -21,93 +23,73 @@ public class Dijkstra {
         int getSkipLastNCells();
     }
 
-    class Vertex implements Comparable<Vertex> {
-        final Position pos;
-        final int dist;
-
-        public Vertex(Position pos, int dist) {
-            this.pos = pos;
-            this.dist = dist;
-        }
-
-        @Override
-        public int compareTo(Vertex o) {
-            return Integer.compare(dist, o.dist);
-        }
-    }
-
     class State implements QueueDist {
-        // TODO: replace map with array?
-        final Map<Position, Integer> dist;
-        final Set<Position> seen;
-        final Map<Position, Position> firstCellOnPath;
-        final PriorityQueue<Vertex> pq;
+        final CachedArrays.IntArray seen;
+        final VertexPriorityQueue pq;
         final Position targetPos;
         final DijkstraHandler handler;
 
-        State(Position targetPos, DijkstraHandler handler) {
-            dist = new HashMap<>();
-            seen = new HashSet<>();
-            firstCellOnPath = new HashMap<>();
-            pq = new PriorityQueue<>();
+        State(Position targetPos, DijkstraHandler handler, final int mapSize) {
+            final int arraySize = mapSize * mapSize;
+            seen = CachedArrays.getNewIntArray(arraySize);
+            pq = new VertexPriorityQueue(arraySize);
             this.targetPos = targetPos;
             this.handler = handler;
-            addVertexToQueue(targetPos, 0, null);
+            addVertexToQueue(targetPos.getX(), targetPos.getY(), 0);
         }
 
-        void addVertexToQueue(Position pos, int distToPos, Position prev) {
-            Integer curBestDist = dist.get(pos);
-            if (curBestDist != null && curBestDist <= distToPos) {
+        void addVertexToQueue(int x, int y, int distToPos) {
+            int compressedCoord = CompressedCoords.compress(x, y);
+            if (pq.dist.contains(compressedCoord) && pq.dist.get(compressedCoord) <= distToPos) {
                 return;
             }
-            firstCellOnPath.put(pos, prev);
-            pq.add(new Vertex(pos, distToPos));
-            dist.put(pos, distToPos);
+            pq.add(compressedCoord, distToPos);
         }
 
-        private void visitNeighbours(Vertex vertex) {
+        private void visitNeighbours(int compressedCoord) {
             MapHelper.Dir[] dirs = MapHelper.dirsUp;
-            final Position curPos = vertex.pos;
 
-            final int nextDist = vertex.dist + getEdgeCost(curPos.getX(), curPos.getY());
+            int curPosX = CompressedCoords.extractX(compressedCoord);
+            int curPosY = CompressedCoords.extractY(compressedCoord);
+            final int nextDist = pq.dist.get(compressedCoord) + getEdgeCost(curPosX, curPosY);
             for (int it = 0; it < dirs.length; it++) {
-                int nx = curPos.getX() + dirs[it].dx;
-                int ny = curPos.getY() + dirs[it].dy;
+                int nx = curPosX + dirs[it].dx;
+                int ny = curPosY + dirs[it].dy;
                 if (!mapHelper.insideMap(nx, ny)) {
                     continue;
                 }
                 if (!handler.canGoThrough(mapHelper.canGoThrough[nx][ny], mapHelper.underAttack[nx][ny], nx, ny, nextDist)) {
                     continue;
                 }
-                addVertexToQueue(new Position(nx, ny), nextDist, curPos);
+                addVertexToQueue(nx, ny, nextDist);
             }
         }
 
-        Position getFirstPathOnPath(final Position startPos, final int maxDist) {
-            if (firstCellOnPath.containsKey(startPos)) {
-                return firstCellOnPath.get(startPos);
+        void getFirstPathOnPath(final Position startPos, final int maxDist) {
+            if (seen.contains(CompressedCoords.compress(startPos))) {
+                return;
             }
             while (!pq.isEmpty()) {
-                Vertex vertex = pq.poll();
-                if (seen.contains(vertex.pos)) {
-                    continue;
+                int compressedCoord = pq.poll();
+                if (seen.contains(compressedCoord)) {
+                    throw new AssertionError("Shouldn't work like this");
                 }
-                seen.add(vertex.pos);
-                visitNeighbours(vertex);
-                if (vertex.dist > maxDist) {
-                    return null;
+                seen.put(compressedCoord, 1);
+                visitNeighbours(compressedCoord);
+                if (pq.dist.contains(compressedCoord) && pq.dist.get(compressedCoord) > maxDist) {
+                    return;
                 }
-                if (vertex.pos.distTo(startPos) == 0) {
-                    return firstCellOnPath.get(startPos);
+                int posX = CompressedCoords.extractX(compressedCoord);
+                int posY = CompressedCoords.extractY(compressedCoord);
+                if (startPos.getX() == posX && startPos.getY() == posY) {
+                    return;
                 }
             }
-            return null;
         }
 
         @Override
         public int getDist(int x, int y) {
-            Position pos = new Position(x, y);
-            return dist.getOrDefault(pos, Integer.MAX_VALUE);
+            return pq.dist.getOrDefault(CompressedCoords.compress(x, y), Integer.MAX_VALUE);
         }
 
         @Override
@@ -161,7 +143,11 @@ public class Dijkstra {
     }
 
 
-    QueueDist findFirstCellOnPath(final Position startPos, final Position targetPos, final DijkstraHandler handler, int maxDist) {
+    QueueDist findFirstCellOnPath(final Position startPos,
+                                  final Position targetPos,
+                                  final DijkstraHandler handler,
+                                  int maxDist,
+                                  int mapSize) {
         if (startPos.distTo(targetPos) == 0) {
             return null;
         }
@@ -173,7 +159,7 @@ public class Dijkstra {
                 handler.isOkEatFood());
         State state = statesByProperties.get(properties);
         if (state == null) {
-            state = new State(targetPos, handler);
+            state = new State(targetPos, handler, mapSize);
             statesByProperties.put(properties, state);
         }
         state.getFirstPathOnPath(startPos, maxDist);

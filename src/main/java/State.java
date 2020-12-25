@@ -257,6 +257,7 @@ public class State {
     }
 
     State(final PlayerView playerView, final DebugInterface debugInterface) {
+        CachedArrays.resetAllArrays();
         this.debugInterface = debugInterface;
         this.playerView = playerView;
         this.myEntities = computeMyEntities();
