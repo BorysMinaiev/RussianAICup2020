@@ -305,7 +305,7 @@ public class GlobalStrategy {
         final int rangedNum = state.myEntitiesByType.get(RANGED_UNIT).size();
 
         ExpectedEntitiesDistribution distribution;
-        if (buildersNum < 60) {
+        if (buildersNum < 50) {
             distribution = ExpectedEntitiesDistribution.START_WITH_BUILDERS;
         } else {
             distribution = ExpectedEntitiesDistribution.TWO_TO_ONE;

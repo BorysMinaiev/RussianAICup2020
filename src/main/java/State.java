@@ -9,6 +9,7 @@ public class State {
     final static Random rnd = new Random(787788);
     final List<Entity> myEntities;
     final List<Entity> allEnemiesWarUnits;
+    final List<Entity> allEnemiesEntities;
     final Map<EntityType, List<Entity>> myEntitiesByType;
     final int populationUsed;
     final int populationTotal;
@@ -217,6 +218,20 @@ public class State {
         return enemiesUnits;
     }
 
+    List<Entity> computeAllEnemiesEntities() {
+        List<Entity> enemiesUnits = new ArrayList<>();
+        for (Entity entity : playerView.getEntities()) {
+            if (entity.getPlayerId() == null) {
+                continue;
+            }
+            if (entity.getPlayerId() == playerView.getMyId()) {
+                continue;
+            }
+            enemiesUnits.add(entity);
+        }
+        return enemiesUnits;
+    }
+
     List<Entity> computeMyEntities() {
         List<Entity> myEntities = new ArrayList<>();
         for (Entity entity : playerView.getEntities()) {
@@ -246,6 +261,7 @@ public class State {
         this.playerView = playerView;
         this.myEntities = computeMyEntities();
         this.allEnemiesWarUnits = computeAllEnemiesWarUnits();
+        this.allEnemiesEntities = computeAllEnemiesEntities();
         this.myEntitiesByType = computeMyEntitiesByType();
         this.populationUsed = countUsedPopulation();
         this.populationTotal = countTotalPopulation();

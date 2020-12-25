@@ -14,6 +14,7 @@ public class PositionsPicker {
         return positions.get(0);
     }
 
+    // TODO: do not spawn builder from the side, where I can't mine resources
     static public Position getTarget(final State state, final Entity building, EntityType whatToBuild) {
         List<Entity> possibleTargets;
         if (whatToBuild == EntityType.BUILDER_UNIT) {
@@ -40,7 +41,7 @@ public class PositionsPicker {
     static class PositionWithScore  {
         final Position pos;
         // bigger - better!
-        final int score;
+        int score;
 
         public PositionWithScore(Position pos, int score) {
             this.pos = pos;
@@ -80,8 +81,16 @@ public class PositionsPicker {
         List<PositionWithScore> options = new ArrayList<>();
         if (target != null) {
             for (Position pos : unitPositions) {
-                int score = bfsQueue == null ? calcPositionScore(pos, what, target) : -Math.min(100, bfsQueue.getDist(pos.getX(), pos.getY()));
+                int score = bfsQueue == null ? calcPositionScore(pos, what, target) : -Math.min(200, bfsQueue.getDist(pos.getX(), pos.getY()));
                 options.add(new PositionWithScore(pos, score));
+            }
+            // make all score positive
+            int minScore = Integer.MAX_VALUE;
+            for (PositionWithScore positionWithScore : options) {
+                minScore = Math.min(minScore, positionWithScore.score);
+            }
+            for (PositionWithScore positionWithScore : options) {
+                positionWithScore.score -= minScore;
             }
         } else {
             for (Position pos : unitPositions) {

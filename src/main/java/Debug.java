@@ -173,17 +173,22 @@ public class Debug {
     private static void showUnderAttackMap(final State state, final DebugInterface debugInterface) {
         final MapHelper map = state.map;
         final int mapSize = map.underAttack.length;
-        List<Vec2Float> trianglePoints = new ArrayList<>();
+        List<Vec2Float> trianglePoints1 = new ArrayList<>();
+        List<Vec2Float> trianglePoints2 = new ArrayList<>();
         for (int x = 0; x < mapSize; x++) {
             for (int y = 0; y < mapSize; y++) {
-                if (map.underAttack[x][y] == MapHelper.UNDER_ATTACK.SAFE) {
-                    continue;
+                if (map.underAttack[x][y] == MapHelper.UNDER_ATTACK.UNDER_ATTACK) {
+                    fillCell(trianglePoints1, x, y);
                 }
-                fillCell(trianglePoints, x, y);
+                if (map.underAttack[x][y] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                    fillCell(trianglePoints2, x, y);
+                }
             }
         }
-        ColoredVertex[] vertices = convertVerticesToList(trianglePoints, Color.TRANSPARENT_RED);
-        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.TRIANGLES)));
+        ColoredVertex[] vertices1 = convertVerticesToList(trianglePoints1, Color.TRANSPARENT_RED);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices1, PrimitiveType.TRIANGLES)));
+        ColoredVertex[] vertices2 = convertVerticesToList(trianglePoints2, Color.TRANSPARENT_ORANGE);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices2, PrimitiveType.TRIANGLES)));
     }
 
     private static void showSafePlacesToMine(final State state, final DebugInterface debugInterface) {
@@ -278,9 +283,9 @@ public class Debug {
         if (action == null) {
             return;
         }
-        if (!PRINT_MOVES_PICKER) {
-            return;
-        }
+//        if (!PRINT_MOVES_PICKER) {
+//            return;
+//        }
         final List<Vec2Float> linePoints = new ArrayList<>();
         for (Map.Entry<Integer, EntityAction> entry : action.getEntityActions().entrySet()) {
             Entity entity = state.getEntityById(entry.getKey());

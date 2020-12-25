@@ -198,16 +198,16 @@ public class RangedUnitStrategy {
                     specialAgentProfile.updateMission(state);
                 }
             } else {
-                if (closestEnemy != null) {
-                    boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
-                    if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
-                        // Integer.MAX_VALUE will try to use auto-attack :(
-                        int maxDist = inMyRegion ? (Integer.MAX_VALUE - 1) : (CLOSE_ENOUGH * 2);
-                        if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, true)) {
-                            continue;
-                        }
-                    }
-                }
+//                if (closestEnemy != null) {
+//                    boolean inMyRegion = state.inMyRegionOfMap(closestEnemy);
+//                    if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH || inMyRegion) {
+//                        // Integer.MAX_VALUE will try to use auto-attack :(
+//                        int maxDist = inMyRegion ? (Integer.MAX_VALUE - 1) : (CLOSE_ENOUGH * 2);
+//                        if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, true)) {
+//                            continue;
+//                        }
+//                    }
+//                }
                 final Position globalTargetPos = state.globalStrategy.whichPlayerToAttack();
                 if (!goToPosition(unit, globalTargetPos, Integer.MAX_VALUE, false, true)) {
                     blocked(unit);
@@ -243,9 +243,11 @@ public class RangedUnitStrategy {
      */
     private ProtectionsResult handleProtections(List<Entity> myUnits) {
         Set<Entity> used = new HashSet<>();
-        List<Entity> enemyUnits = new ArrayList<>(state.needProtection.enemiesToAttack.keySet());
+        Set<Entity> importantEnemies = state.needProtection.enemiesToAttack.keySet();
+        List<Entity> enemyUnits = new ArrayList<>(state.allEnemiesEntities);
         MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + myUnits.size() + enemyUnits.size() + 1);
-        MinCostMaxFlow.Edge[][] edges = new MinCostMaxFlow.Edge[myUnits.size()][];
+        List<MinCostMaxFlow.Edge>[] edges = new List[myUnits.size()];
+        List<Entity>[] targets = new List[myUnits.size()];
         // TODO: optimize speed?
         for (int i = 0; i < myUnits.size(); i++) {
             Entity unit = myUnits.get(i);
@@ -254,12 +256,17 @@ public class RangedUnitStrategy {
                 continue;
             }
             minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
-            edges[i] = new MinCostMaxFlow.Edge[enemyUnits.size()];
+            edges[i] = new ArrayList<>();
+            targets[i] = new ArrayList<>();
             for (int j = 0; j < enemyUnits.size(); j++) {
-                final Position expectedPosToProtect = state.needProtection.enemiesToAttack.get(enemyUnits.get(j)).getPosition();
+                final Position expectedPosToProtect = enemyUnits.get(j).getPosition();
                 final int dist = expectedPosToProtect.distTo(myUnits.get(i).getPosition());
+                if (dist > CLOSE_ENOUGH && !importantEnemies.contains(enemyUnits.get(j))) {
+                    continue;
+                }
                 long weight = MinCostMaxFlow.pathDistToWeight(dist);
-                edges[i][j] = minCostMaxFlow.addEdge(1 + i, 1 + myUnits.size() + j, 1, weight);
+                edges[i].add(minCostMaxFlow.addEdge(1 + i, 1 + myUnits.size() + j, 1, weight));
+                targets[i].add(enemyUnits.get(j));
             }
         }
         // TODO: THINK ABOUT CAP = 2!!!
@@ -273,12 +280,15 @@ public class RangedUnitStrategy {
             if (edges[i] == null) {
                 continue;
             }
-            for (int j = 0; j < edges[i].length; j++) {
-                final MinCostMaxFlow.Edge edge = edges[i][j];
+            for (int j = 0; j < edges[i].size(); j++) {
+                final MinCostMaxFlow.Edge edge = edges[i].get(j);
                 if (edge.flow > 0) {
-                    final Position targetCell = enemyUnits.get(j).getPosition();
+                    final Entity enemy = targets[i].get(j);
+                    final Position targetCell = enemy.getPosition();
                     // TODO: MAX_VALUE, STAY?
-                    if (!goToPosition(myUnit, targetCell, Integer.MAX_VALUE - 1, true, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
+                    boolean important = importantEnemies.contains(enemy);
+                    int maxDist = important ? Integer.MAX_VALUE - 1 : CLOSE_ENOUGH * 2;
+                    if (!goToPosition(myUnit, targetCell, maxDist, important, true, true, MovesPicker.PRIORITY_GO_TO_PROTECT)) {
                         blocked(myUnit);
                     }
                     used.add(myUnit);
