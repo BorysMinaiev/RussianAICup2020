@@ -190,8 +190,59 @@ public class RangedUnitStrategy {
         }
     }
 
+    void updateDefenderSpecialAgentsMissions(List<Entity> allUnits) {
+        List<Entity> defenders = new ArrayList<>();
+        for (Entity rangedUnit : allUnits) {
+            SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, rangedUnit);
+            if (profile == null) {
+                continue;
+            }
+            if (profile.defender) {
+                defenders.add(rangedUnit);
+            }
+        }
+        List<ProtectionBalance.TopBalance> topBalances = state.map.protectionBalance.topBalances;
+        if (topBalances.isEmpty()) {
+            return;
+        }
+        final int unitsPerPoint = 1 + (defenders.size() - 1) / topBalances.size();
+        MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + defenders.size() + topBalances.size() + 1);
+        List<MinCostMaxFlow.Edge>[] edges = new List[defenders.size()];
+        List<ProtectionBalance.TopBalance>[] targets = new List[defenders.size()];
+        for (int i = 0; i < defenders.size(); i++) {
+            minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
+            edges[i] = new ArrayList<>();
+            targets[i] = new ArrayList<>();
+            for (int j = 0; j < topBalances.size(); j++) {
+                ProtectionBalance.TopBalance topBalance = topBalances.get(j);
+                final Position expectedPosToProtect = new Position(topBalance.x, topBalance.y);
+                final int dist = expectedPosToProtect.distTo(defenders.get(i).getPosition());
+                long weight = MinCostMaxFlow.pathDistToWeight(dist);
+                edges[i].add(minCostMaxFlow.addEdge(1 + i, 1 + defenders.size() + j, 1, weight));
+                targets[i].add(topBalances.get(j));
+            }
+        }
+        for (int i = 0; i < topBalances.size(); i++) {
+            minCostMaxFlow.addEdge(1 + defenders.size() + i, minCostMaxFlow.n - 1, unitsPerPoint, 0);
+        }
+        minCostMaxFlow.getMinCostMaxFlow(0, minCostMaxFlow.n - 1);
+        for (int i = 0; i < defenders.size(); i++) {
+            final Entity myUnit = defenders.get(i);
+            for (int j = 0; j < edges[i].size(); j++) {
+                final MinCostMaxFlow.Edge edge = edges[i].get(j);
+                if (edge.flow > 0) {
+                    final ProtectionBalance.TopBalance enemy = targets[i].get(j);
+                    final Position targetCell = new Position(enemy.x, enemy.y);
+                    SpecialAgents.getSpecialAgentProfile(state, myUnit).setMission(targetCell);
+                    break;
+                }
+            }
+        }
+    }
+
     void makeMoveForAll() {
         final List<Entity> allRangedUnits = state.myEntitiesByType.get(EntityType.RANGED_UNIT);
+        updateDefenderSpecialAgentsMissions(allRangedUnits);
         final int attackRange = state.getEntityTypeProperties(EntityType.RANGED_UNIT).getAttack().getAttackRange();
         List<Entity> notAttackingOnCurrentTurn = new ArrayList<>();
         for (Entity unit : allRangedUnits) {
@@ -227,19 +278,31 @@ public class RangedUnitStrategy {
             Entity closestEnemy = state.map.findClosestEnemy(unit.getPosition());
             if (specialAgentProfile != null) {
                 if (closestEnemy != null) {
-                    if (closestEnemy.getPosition().distTo(unit.getPosition()) <= CLOSE_ENOUGH && closestEnemy.getEntityType() == EntityType.BUILDER_UNIT) {
+                    boolean shouldAttackClosestEnemy = closestEnemy.getEntityType() == EntityType.BUILDER_UNIT;
+                    if (specialAgentProfile.defender) {
+                        shouldAttackClosestEnemy = true;
+                    }
+                    if (closestEnemy.getPosition().distTo(unit.getPosition()) > CLOSE_ENOUGH) {
+                        shouldAttackClosestEnemy = false;
+                    }
+                    if (shouldAttackClosestEnemy) {
                         int maxDist = CLOSE_ENOUGH * 2;
                         if (goToPosition(unit, closestEnemy.getPosition(), maxDist, false, false)) {
                             continue;
                         }
                     }
                 }
-                if (specialAgentProfile.shouldUpdateMission(unit)) {
-                    specialAgentProfile.updateMission(state);
-                }
-                if (!goToPosition(unit, specialAgentProfile.currentTarget, Integer.MAX_VALUE, false, false)) {
-                    maybeSpecialAgentCouldAttackSomething(unit);
-                    specialAgentProfile.updateMission(state);
+                if (specialAgentProfile.defender) {
+                    goToPosition(unit, specialAgentProfile.currentTarget, Integer.MAX_VALUE - 1, false, false, true, MovesPicker.PRIORITY_SMALL);
+                } else {
+                    if (specialAgentProfile.shouldUpdateMission(unit)) {
+                        specialAgentProfile.updateMission(state);
+                    }
+                    int maxDist = Integer.MAX_VALUE;
+                    if (!goToPosition(unit, specialAgentProfile.currentTarget, maxDist, false, false)) {
+                        maybeSpecialAgentCouldAttackSomething(unit);
+                        specialAgentProfile.updateMission(state);
+                    }
                 }
             } else {
 //                if (closestEnemy != null) {

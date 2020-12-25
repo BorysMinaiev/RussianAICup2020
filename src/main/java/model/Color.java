@@ -58,6 +58,7 @@ public class Color {
     public static Color BLUE = new Color(0.0f, 0.0f, 1.0f, 1.0f);
     public static Color TRANSPARENT_BLUE = new Color(0.0f, 0.0f, 1.0f, 0.3f);
     public static Color GREEN = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+    public static Color FOREST_GREEN = new Color(34f / 256, 139f / 256, 34f / 256, 1.0f);
     public static Color ORANGE = new Color(1.0f, 165.0f / 256, 0.0f, 1.0f);
     public static Color TRANSPARENT_ORANGE = new Color(1.0f, 165.0f / 256, 0.0f, 0.3f);
     public static Color WHITE = new Color(1.0f, 1.0f, 1.0f, 1.0f);

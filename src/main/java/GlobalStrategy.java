@@ -153,7 +153,7 @@ public class GlobalStrategy {
         static ExpectedEntitiesDistribution V2 = new ExpectedEntitiesDistribution(10, 0, 2, 1);
         static ExpectedEntitiesDistribution START_WITH_BUILDERS = new ExpectedEntitiesDistribution(4, 0, 1, 0);
 
-        static ExpectedEntitiesDistribution TWO_TO_ONE = new ExpectedEntitiesDistribution(4, 0, 3, 0);
+        static ExpectedEntitiesDistribution TWO_TO_ONE = new ExpectedEntitiesDistribution(2, 0, 1, 0);
         static ExpectedEntitiesDistribution ONLY_BUILDERS = new ExpectedEntitiesDistribution(1, 0, 0, 0);
         static ExpectedEntitiesDistribution ALMOST_RANGED = new ExpectedEntitiesDistribution(1, 0, 2, 0);
 
@@ -283,12 +283,21 @@ public class GlobalStrategy {
         return state.myEntitiesCount.get(BUILDER_UNIT) > MAX_BUILDERS;
     }
 
+    boolean alreadyTooMuchRangers() {
+        int nRangers = state.myEntitiesCount.get(RANGED_UNIT);
+        int nBuilders = state.myEntitiesCount.get(BUILDER_UNIT);
+        if (nRangers * 3 > nBuilders * 2) {
+            return true;
+        }
+        return false;
+    }
+
     WantToBuild whatNextToBuildWithoutCache() {
         WantToBuild wantToBuild = new WantToBuild(state);
         EntityType toProtect = needToProtectSomething();
-        if (toProtect != null && hasEnoughHousesToBuildUnits()) {
-            wantToBuild.add(toProtect);
-        }
+//        if (toProtect != null && hasEnoughHousesToBuildUnits() && !alreadyTooMuchRangers()) {
+//            wantToBuild.add(toProtect);
+//        }
         if (needRangedHouse() && state.playerView.getCurrentTick() > FIRST_TICK_FOR_RANGED_BASE) {
             wantToBuild.add(RANGED_BASE);
         }
@@ -301,33 +310,80 @@ public class GlobalStrategy {
         if (needMoreBuilders() && hasEnoughHousesToBuildUnits()) {
             wantToBuild.add(BUILDER_UNIT);
         }
-        final int buildersNum = state.myEntitiesByType.get(BUILDER_UNIT).size();
-        final int rangedNum = state.myEntitiesByType.get(RANGED_UNIT).size();
+        final int nBuilders = state.myEntitiesByType.get(BUILDER_UNIT).size();
+        final int nRangers = state.myEntitiesByType.get(RANGED_UNIT).size();
 
-        ExpectedEntitiesDistribution distribution;
-        if (buildersNum < 50) {
-            distribution = ExpectedEntitiesDistribution.START_WITH_BUILDERS;
-        } else {
-            distribution = ExpectedEntitiesDistribution.TWO_TO_ONE;
-        }
+//        ExpectedEntitiesDistribution distribution;
+//        if (buildersNum < 40) {
+//            distribution = ExpectedEntitiesDistribution.START_WITH_BUILDERS;
+//        } else {
+//            distribution = ExpectedEntitiesDistribution.TWO_TO_ONE;
+//        }
 //        if (stateshouldBeAggressive() ?
 //                ExpectedEntitiesDistribution.ALMOST_RANGED :
 //                ExpectedEntitiesDistribution.START_WITH_BUILDERS;
-        if (shouldNotBuildMoreBuilders()) {
-            distribution = distribution.noMoreBuilders();
-        }
+//        if (shouldNotBuildMoreBuilders()) {
+//            distribution = distribution.noMoreBuilders();
+//        }
 //        if (state.myEntitiesCount.get(RANGED_UNIT) > MAX_RANGED_UNITS && !muchResources()) {
 //            distribution = distribution.noMoreRangedUnits();
 //        }
-        if (state.myEntitiesCount.get(RANGED_UNIT) > REALLY_MAX_RANGED_UNITS) {
-            distribution = distribution.noMoreRangedUnits();
-        }
-        List<EntityType> distRes = distribution.chooseWhatToBuild(state);
-        for (EntityType entityType : distRes) {
-            wantToBuild.add(entityType);
-        }
+//        if (state.myEntitiesCount.get(RANGED_UNIT) > REALLY_MAX_RANGED_UNITS) {
+//            distribution = distribution.noMoreRangedUnits();
+//        }
+//        List<EntityType> distRes = distribution.chooseWhatToBuild(state);
+//        for (EntityType entityType : distRes) {
+//            wantToBuild.add(entityType);
+//        }
+        wantToBuild.add(commandosStrategy(nBuilders, nRangers));
+        wantToBuild.add(RANGED_UNIT);
+        wantToBuild.add(BUILDER_UNIT);
         // TODO: make it smarter
         return wantToBuild;
+    }
+
+    private EntityType commandosStrategy(int nBuilders, int nRangers) {
+        if (needRangedHouse()) {
+            return BUILDER_UNIT;
+        }
+        if (nBuilders > MAX_BUILDERS || shouldNotBuildMoreBuilders()) {
+            return RANGED_UNIT;
+        }
+        if (nRangers > REALLY_MAX_RANGED_UNITS) {
+            return BUILDER_UNIT;
+        }
+        if (nBuilders < 40) {
+            return BUILDER_UNIT;
+        }
+        if (nBuilders <= 50) {
+            if (nRangers * 5 < nBuilders * 2) {
+                return RANGED_UNIT;
+            } else {
+                return BUILDER_UNIT;
+            }
+        }
+        if (nBuilders <= 60) {
+            if (nRangers <= 20) {
+                return RANGED_UNIT;
+            } else {
+                return BUILDER_UNIT;
+            }
+        }
+        if (nBuilders <= 75) {
+            if (nRangers <= 30) {
+                return RANGED_UNIT;
+            } else {
+                return BUILDER_UNIT;
+            }
+        }
+        if (nRangers <= 50) {
+            return RANGED_UNIT;
+        }
+        if (nRangers * 75 < nBuilders * 50) {
+            return RANGED_UNIT;
+        } else {
+            return BUILDER_UNIT;
+        }
     }
 
     private boolean muchResources() {

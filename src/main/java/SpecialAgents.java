@@ -9,14 +9,16 @@ public class SpecialAgents {
     static class Profile {
         Position currentTarget;
         int currentMissionId;
+        final boolean defender;
 
-        public Profile(Position currentTarget) {
+        public Profile(Position currentTarget, boolean defender) {
             this.currentTarget = currentTarget;
             this.currentMissionId = 0;
+            this.defender = defender;
         }
 
         public boolean shouldUpdateMission(Entity unit) {
-            return unit.getPosition().distTo(currentTarget) < 10;
+            return unit.getPosition().distTo(currentTarget) < 10 && !defender;
         }
 
         public void updateMission(State state) {
@@ -29,12 +31,16 @@ public class SpecialAgents {
             currentMissionId++;
         }
 
+        public void setMission(Position targetPos) {
+            currentTarget = targetPos;
+        }
+
         public boolean shouldAttack(EntityType entityType) {
-            return !entityType.isBuilding();
+            return !entityType.isBuilding() || defender;
         }
 
         public boolean shouldProtect() {
-            return currentMissionId > 1;
+            return currentMissionId > 1 || defender;
         }
     }
 
@@ -50,7 +56,8 @@ public class SpecialAgents {
         if (id % 15 < 3) {
             final int mapSize = state.playerView.getMapSize();
             Position[] targetPositions = getPredefinedTargets(mapSize);
-            return new Profile(targetPositions[State.rnd.nextInt(targetPositions.length)]);
+            boolean defender = State.rnd.nextDouble() < 0.0;
+            return new Profile(targetPositions[State.rnd.nextInt(targetPositions.length)], defender);
         } else {
             return null;
         }

@@ -353,18 +353,40 @@ public class Debug {
     }
 
     private static void showSpecialAgents(final State state, final DebugInterface debugInterface) {
-        List<Vec2Float> linePoints = new ArrayList<>();
-        for (Entity entity : state.myEntities) {
-            SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, entity);
-            if (profile == null) {
-                continue;
-            }
-            final Position targetPos = profile.currentTarget;
-            drawArrow(linePoints, toV2float(entity.getPosition()), toV2float(targetPos));
-//            highlightSpecialAgent(linePoints, entity.getPosition());
-        }
+        int numDefenders = 0;
+        for (boolean defenders : new boolean[]{false, true}) {
+            List<Vec2Float> linePoints = new ArrayList<>();
 
-        ColoredVertex[] vertices = convertVerticesToList(linePoints, Color.MAGENTA);
+            for (Entity entity : state.myEntities) {
+                SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, entity);
+                if (profile == null) {
+                    continue;
+                }
+                if (profile.defender != defenders) {
+                    continue;
+                }
+                if (profile.defender) {
+                    numDefenders++;
+                }
+                final Position targetPos = profile.currentTarget;
+                drawArrow(linePoints, toV2float(entity.getPosition()), toV2float(targetPos));
+//            highlightSpecialAgent(linePoints, entity.getPosition());
+            }
+
+            Color color = defenders ? Color.FOREST_GREEN : Color.MAGENTA;
+            ColoredVertex[] vertices = convertVerticesToList(linePoints, color);
+
+            debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
+        }
+        printDebugText(state, debugInterface, "num defenders: " + numDefenders, Color.FOREST_GREEN);
+    }
+
+    private static void showTopBalances(final State state, final DebugInterface debugInterface) {
+        List<Vec2Float> points = new ArrayList<>();
+        for (ProtectionBalance.TopBalance topBalance : state.map.protectionBalance.topBalances) {
+            drawArrow(points, new Vec2Float(-1f, -1f), new Vec2Float(topBalance.x + 0.5f, topBalance.y + 0.5f));
+        }
+        ColoredVertex[] vertices = convertVerticesToList(points, Color.FOREST_GREEN);
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
     }
 
@@ -392,6 +414,7 @@ public class Debug {
         showBadUnits(state, debugInterface);
         showActions(state, debugInterface, action);
         showSpecialAgents(state, debugInterface);
+        showTopBalances(state, debugInterface);
 
         debugInterface.send(new DebugCommand.Flush());
     }

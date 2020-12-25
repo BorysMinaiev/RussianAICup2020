@@ -12,6 +12,7 @@ public class MapHelper {
     final int[][] distToClosestEnemyRangedUnit;
     final State state;
     final List<Position> safePositionsToMine;
+    final ProtectionBalance protectionBalance;
 
     enum CAN_GO_THROUGH {
         EMPTY_CELL,
@@ -201,6 +202,7 @@ public class MapHelper {
         this.dijkstra = new Dijkstra(this);
         this.distToClosestEnemyRangedUnit = computeDistToClosesEnemyRangedUnit();
         this.safePositionsToMine = computeSafePositionsToMine();
+        this.protectionBalance = new ProtectionBalance(this);
     }
 
     private int[][] computeDistToClosesEnemyRangedUnit() {
@@ -751,7 +753,8 @@ public class MapHelper {
                                               final int totalDist,
                                               final QueueDist bfs,
                                               boolean canAttackResources,
-                                              boolean okGoThrougMyBuilders) {
+                                              boolean okGoThrougMyBuilders,
+                                              boolean okGoToNotGoThere) {
         Dir[] dirs = getDirs(targetPos.getX() - startPos.getX(), targetPos.getY() - startPos.getY());
         List<FirstMoveOption> options = new ArrayList<>();
         for (Dir dir : dirs) {
@@ -765,7 +768,7 @@ public class MapHelper {
                 continue;
             }
             if (insideMap(nx, ny) && distFromNext + bfs.getEdgeCost(nx, ny) <= totalDist) {
-                if (underAttack[nx][ny] != UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                if (underAttack[nx][ny] != UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE || okGoToNotGoThere) {
                     if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources, okGoThrougMyBuilders)) {
                         options.add(new FirstMoveOption(new Position(nx, ny), distFromNext));
                     }
@@ -832,7 +835,7 @@ public class MapHelper {
         }
         final PathToTargetBfsHandler handler = new PathToTargetBfsHandler(startPos, skipLastNCells, okGoToNotGoThere, okGoThroughMyBuilders, okGoUnderAttack, okEatFood);
         QueueDist queue = dijkstra.findFirstCellOnPath(startPos, targetPos, handler, maxDist, state.playerView.getMapSize());
-        return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true, okGoThroughMyBuilders);
+        return findFirstCellOnPath(startPos, targetPos, queue.getDist(startPos.getX(), startPos.getY()), queue, true, okGoThroughMyBuilders, okGoToNotGoThere);
     }
 
 
@@ -887,7 +890,7 @@ public class MapHelper {
                 // TODO: fix target cell
                 final Position pos = builder.getPosition();
                 final int dist = queue.getDist(pos.getX(), pos.getY());
-                final List<Position> firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue, false, true);
+                final List<Position> firstCell = findFirstCellOnPath(pos, builder.getPosition(), dist, queue, false, true, false);
                 if (firstCell.isEmpty()) {
                     continue;
                 }
