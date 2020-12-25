@@ -282,6 +282,7 @@ public class State {
         this.movesPicker = new MovesPicker(this);
 //        System.err.println("CURRENT TICK: " + playerView.getCurrentTick() + ", population: " + populationUsed + "/" + populationTotal);
         this.needProtection = new NeedProtection(this);
+        OpponentTracker.updateState(this);
     }
 
     private Map<Integer, Entity> computeEntityById() {

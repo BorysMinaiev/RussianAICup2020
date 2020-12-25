@@ -97,9 +97,19 @@ public class BuilderStrategy {
             this.occupiedCellsNearby = occupiedCellsNearby(occupiedCellsNearby);
             final int distToZeroMultiplier = what == TURRET || what == RANGED_BASE ? (-1) : 1;
             this.distToZero = (where.getX() + where.getY()) * distToZeroMultiplier;
+            int emptyCellsNearby = 0;
+            for (boolean x : occupiedCellsNearby) {
+                if (!x) {
+                    emptyCellsNearby++;
+                }
+            }
+            Collections.sort(builderWithDists);
+            while (builderWithDists.size() > emptyCellsNearby) {
+                builderWithDists.remove(builderWithDists.size() - 1);
+            }
             this.ticksToBuild = computeTicksToBuild(state, builderWithDists, what);
             // TODO: change constant?
-            this.score = (ticksToBuild * 4 + occupiedCellsNearby.size()) * 1000 + distToZero;
+            this.score = (ticksToBuild + occupiedCellsNearby.size() * 5) * 1000 + distToZero;
             builderReadyToBuild = null;
             for (BuilderWithDist builderWithDist : builderWithDists) {
                 if (builderWithDist.dist == 1) {
@@ -152,7 +162,7 @@ public class BuilderStrategy {
 
     static int getNumWorkersToHelpRepair(final EntityType type) {
         if (type == RANGED_BASE || type == BUILDER_BASE) {
-            return 10;
+            return 12;
         }
         if (type == HOUSE) {
             return 3;

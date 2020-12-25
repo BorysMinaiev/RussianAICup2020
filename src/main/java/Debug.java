@@ -414,7 +414,7 @@ public class Debug {
         showBadUnits(state, debugInterface);
         showActions(state, debugInterface, action);
         showSpecialAgents(state, debugInterface);
-        showTopBalances(state, debugInterface);
+//        showTopBalances(state, debugInterface);
 
         debugInterface.send(new DebugCommand.Flush());
     }

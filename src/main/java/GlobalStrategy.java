@@ -245,7 +245,7 @@ public class GlobalStrategy {
         return cachedWhatToBuild;
     }
 
-    final int FIRST_TICK_FOR_RANGED_BASE = 150;
+    final int FIRST_TICK_FOR_RANGED_BASE = 200;
 
     private boolean lowResourcesInTotal() {
         if (state.playerView.isFogOfWar()) {
@@ -298,7 +298,7 @@ public class GlobalStrategy {
 //        if (toProtect != null && hasEnoughHousesToBuildUnits() && !alreadyTooMuchRangers()) {
 //            wantToBuild.add(toProtect);
 //        }
-        if (needRangedHouse() && state.playerView.getCurrentTick() > FIRST_TICK_FOR_RANGED_BASE) {
+        if (needRangedHouse() && state.playerView.getCurrentTick() > Math.min(OpponentTracker.tickWhenSomebodyBuildARangedBase, FIRST_TICK_FOR_RANGED_BASE)) {
             wantToBuild.add(RANGED_BASE);
         }
         if (needBuilderBase()) {
