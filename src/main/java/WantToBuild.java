@@ -49,6 +49,9 @@ public class WantToBuild {
         if (wantThis.contains(entityType)) {
             return;
         }
+        if (entityType.isBuilding() && hasBuilding()) {
+            return;
+        }
         int needMoney = needMoney(entityType);
         if (expectedMoreMoney >= needMoney) {
             expectedMoreMoney -= needMoney;
@@ -56,6 +59,10 @@ public class WantToBuild {
         } else {
             acceptMore = false;
         }
+    }
+
+    private boolean hasBuilding() {
+        return !whichBuildings().isEmpty();
     }
 
     public List<EntityType> whichBuildings() {
