@@ -72,4 +72,8 @@ public class Position {
     public int distTo(Position p) {
         return Math.abs(p.x - x) + Math.abs(p.y - y);
     }
+
+    public int distTo(int ox, int oy) {
+        return Math.abs(ox - x) + Math.abs(oy - y);
+    }
 }

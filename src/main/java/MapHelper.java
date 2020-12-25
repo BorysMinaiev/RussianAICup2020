@@ -39,6 +39,7 @@ public class MapHelper {
     }
 
     final CAN_GO_THROUGH[][] canGoThrough;
+    // means - will it be under attack on next turn?
     final UNDER_ATTACK[][] underAttack;
     final int myPlayerId;
     final BfsQueue bfs;
@@ -476,8 +477,8 @@ public class MapHelper {
 
         @Override
         public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
-            // < - because otherwise we go under turrets
-            if (dist < skipLastNCells) {
+            // if two units stay nearby, it will generate "not go there" area of size attackRange
+            if (dist <= skipLastNCells) {
                 return true;
             }
             switch (underAttack) {
@@ -514,7 +515,10 @@ public class MapHelper {
         }
 
         @Override
-        public int getEdgeCost(CAN_GO_THROUGH type) {
+        public int getEdgeCost(CAN_GO_THROUGH type, int straightDistToTarget) {
+            if (straightDistToTarget <= skipLastNCells) {
+                return 1;
+            }
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
                 case UNKNOWN, FOOD, ENEMY_BUILDING -> 2;
@@ -761,8 +765,10 @@ public class MapHelper {
                 continue;
             }
             if (insideMap(nx, ny) && distFromNext + bfs.getEdgeCost(nx, ny) <= totalDist) {
-                if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources, okGoThrougMyBuilders)) {
-                    options.add(new FirstMoveOption(new Position(nx, ny), distFromNext));
+                if (underAttack[nx][ny] != UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                    if (canGoThereOnCurrentTurn(canGoThrough[nx][ny], canAttackResources, okGoThrougMyBuilders)) {
+                        options.add(new FirstMoveOption(new Position(nx, ny), distFromNext));
+                    }
                 }
             }
         }

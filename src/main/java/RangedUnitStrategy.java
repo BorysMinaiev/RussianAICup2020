@@ -86,15 +86,58 @@ public class RangedUnitStrategy {
         if (firstCellsInPath.isEmpty()) {
             return false;
         }
-        state.addDebugTarget(unit.getPosition(), goToPos);
-        for (Position firstCellInPath : firstCellsInPath) {
-            if (state.isOccupiedByResource(firstCellInPath)) {
-                eat(unit, firstCellInPath);
-            } else {
+        final Position curPos = unit.getPosition();
+        state.addDebugTarget(curPos, goToPos);
+        if (state.map.underAttack[curPos.getX()][curPos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+            boolean existGoodMove = false;
+            for (Position firstCellInPath : firstCellsInPath) {
+                if (state.isOccupiedByResource(firstCellInPath)) {
+                    continue;
+                }
                 state.move(unit, firstCellInPath, priority);
+                existGoodMove = true;
+            }
+            if (!existGoodMove) {
+                if (!goAwayFromNotGoThere(unit, priority)) {
+                    for (Position firstCellInPath : firstCellsInPath) {
+                        if (state.isOccupiedByResource(firstCellInPath)) {
+                            eat(unit, firstCellInPath);
+                            existGoodMove = true;
+                        }
+                    }
+                    return existGoodMove;
+                }
+            }
+        } else {
+            for (Position firstCellInPath : firstCellsInPath) {
+                if (state.isOccupiedByResource(firstCellInPath)) {
+                    eat(unit, firstCellInPath);
+                } else {
+                    state.move(unit, firstCellInPath, priority);
+                }
             }
         }
         return true;
+    }
+
+    private boolean goAwayFromNotGoThere(final Entity unit, final int priority) {
+        final Position curPos = unit.getPosition();
+        boolean existGoodMove = false;
+        for (int it = 0; it < Directions.dx.length; it++) {
+            final int nx = curPos.getX() + Directions.dx[it];
+            final int ny = curPos.getY() + Directions.dy[it];
+            if (!state.map.insideMap(nx, ny)) {
+                continue;
+            }
+            if (state.map.underAttack[nx][ny] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                continue;
+            }
+            if (MapHelper.canGoThereOnCurrentTurn(state.map.canGoThrough[nx][ny], false, true)) {
+                state.move(unit, new Position(nx, ny), priority + 1);
+                existGoodMove = true;
+            }
+        }
+        return existGoodMove;
     }
 
     private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoUnderAttack) {
@@ -195,6 +238,7 @@ public class RangedUnitStrategy {
                     specialAgentProfile.updateMission(state);
                 }
                 if (!goToPosition(unit, specialAgentProfile.currentTarget, Integer.MAX_VALUE, false, false)) {
+                    maybeSpecialAgentCouldAttackSomething(unit);
                     specialAgentProfile.updateMission(state);
                 }
             } else {
@@ -215,6 +259,14 @@ public class RangedUnitStrategy {
             }
         }
         resolveEatingFoodPaths(allRangedUnits);
+    }
+
+    void maybeSpecialAgentCouldAttackSomething(final Entity unit) {
+        int attackRange = state.getEntityProperties(unit).getAttack().getAttackRange();
+        List<Entity> toAttackOptions = state.map.getEntitiesToAttack(unit.getPosition(), attackRange);
+        for (Entity toAttack : toAttackOptions) {
+            attack(unit, toAttack);
+        }
     }
 
     static private List<Entity> filterProtections(List<Entity> allUnits, Set<Entity> used) {

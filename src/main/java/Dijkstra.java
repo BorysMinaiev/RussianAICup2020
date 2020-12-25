@@ -10,7 +10,7 @@ public class Dijkstra {
     interface DijkstraHandler {
         boolean canGoThrough(MapHelper.CAN_GO_THROUGH type, MapHelper.UNDER_ATTACK underAttack, int x, int y, int dist);
 
-        int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through);
+        int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through, int straightDistToTarget);
 
         boolean isOkGoNotGoThere();
 
@@ -94,7 +94,8 @@ public class Dijkstra {
 
         @Override
         public int getEdgeCost(int x, int y) {
-            return handler.getEdgeCost(mapHelper.canGoThrough[x][y]);
+            int straightDistToTarget = targetPos.distTo(x, y);
+            return handler.getEdgeCost(mapHelper.canGoThrough[x][y], straightDistToTarget);
         }
     }
 

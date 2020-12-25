@@ -109,7 +109,11 @@ public class MovesPicker {
 
         @Override
         public int compareTo(Move o) {
-            return -Integer.compare(priority, o.priority);
+            int cmp1 = -Integer.compare(priority, o.priority);
+            if (cmp1 != 0) {
+                return cmp1;
+            }
+            return -Integer.compare(priorityRelativeToTargetCell, o.priorityRelativeToTargetCell);
         }
     }
 
