@@ -13,6 +13,59 @@ public class MapHelper {
     final State state;
     final List<Position> safePositionsToMine;
     final ProtectionBalance protectionBalance;
+    final CachedArrays.IntArray willBeUsedByBuilders;
+
+    public void markCellAsWillBeUsedByBuilder(Position targetCell) {
+        willBeUsedByBuilders.put(CompressedCoords.compress(targetCell), 1);
+    }
+
+    public boolean willBeUsedByBuilder(int x, int y) {
+        return willBeUsedByBuilders.contains(CompressedCoords.compress(x, y));
+    }
+
+    public void markCellsWillBeUsedForBuilding(Position where, EntityType what) {
+        // TODO: update: attackByPos
+        int size = state.getEntityTypeProperties(what).getSize();
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                updateUnderAttack(where.getX() + dx, where.getY() + dy, UNDER_ATTACK.UNDER_ATTACK);
+            }
+        }
+        List<Position> checkWhereToGo = CellsUtils.getPositionsOnRectBorderCCW(where.shift(-1, -1), where.shift(size, size));
+        List<Position> queue = new ArrayList<>();
+        Map<Position, Integer> seen = new HashMap<>();
+        for (Position pos : checkWhereToGo) {
+            if (insideMap(pos.getX(), pos.getY())) {
+                Entity there = entitiesByPos[pos.getX()][pos.getY()];
+                if (there != null) {
+                    continue;
+                }
+                queue.add(pos);
+                seen.put(pos, 0);
+            }
+        }
+        Position topRight = where.shift(size - 1, size - 1);
+
+        int qIt = 0;
+        while (qIt < queue.size()) {
+            Position pos = queue.get(qIt++);
+            int[] dx = Directions.dx;
+            int[] dy = Directions.dy;
+            int cost = seen.get(pos) + 1;
+            for (int it = 0; it < dx.length; it++) {
+                Position nPos = pos.shift(dx[it], dy[it]);
+                if (!CellsUtils.isBetween(nPos, where, topRight)) {
+                    continue;
+                }
+                if (seen.containsKey(nPos)) {
+                    continue;
+                }
+                queue.add(nPos);
+                seen.put(nPos, cost);
+                state.attackedByPos.put(nPos, state.attackedByPos.getOrDefault(nPos, 0.0) + cost);
+            }
+        }
+    }
 
     enum CAN_GO_THROUGH {
         EMPTY_CELL,
@@ -203,6 +256,8 @@ public class MapHelper {
         this.distToClosestEnemyRangedUnit = computeDistToClosesEnemyRangedUnit();
         this.safePositionsToMine = computeSafePositionsToMine();
         this.protectionBalance = new ProtectionBalance(this);
+        final int mapSize = state.playerView.getMapSize();
+        willBeUsedByBuilders = new CachedArrays.IntArray(mapSize * mapSize);
     }
 
     private int[][] computeDistToClosesEnemyRangedUnit() {
@@ -390,7 +445,6 @@ public class MapHelper {
     }
 
 
-
     static class Dir {
         final int dx, dy;
 
@@ -563,6 +617,12 @@ public class MapHelper {
     }
 
     static class PathToResourcesBfsHandler implements BfsHandler {
+        final MapHelper mapHelper;
+
+        public PathToResourcesBfsHandler(MapHelper mapHelper) {
+            this.mapHelper = mapHelper;
+        }
+
         @Override
         public boolean canGoThrough(CAN_GO_THROUGH type, UNDER_ATTACK underAttack, int x, int y, int dist) {
             switch (underAttack) {
@@ -571,9 +631,12 @@ public class MapHelper {
                 case UNDER_ATTACK, UNDER_ATTACK_DO_NOT_GO_THERE:
                     return false;
             }
+            if (mapHelper.willBeUsedByBuilder(x, y)) {
+                return false;
+            }
             return switch (type) {
-                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDER -> true;
-                case MY_BUILDING, FOOD, MY_WORKING_BUILDER, ENEMY_BUILDING -> false;
+                case EMPTY_CELL, UNKNOWN, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT -> true;
+                case MY_BUILDING, FOOD, MY_WORKING_BUILDER, ENEMY_BUILDING, MY_BUILDER -> false;
             };
         }
 
@@ -864,7 +927,7 @@ public class MapHelper {
         for (Entity resource : resources) {
             initialPositions.add(resource.getPosition());
         }
-        PathToResourcesBfsHandler handler = new PathToResourcesBfsHandler();
+        PathToResourcesBfsHandler handler = new PathToResourcesBfsHandler(this);
         return findPathsToCells(initialPositions, handler);
     }
 

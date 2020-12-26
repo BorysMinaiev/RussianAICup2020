@@ -40,7 +40,9 @@ public class BuilderStrategy {
         if (bestPosToGo == builder.getPosition()) {
             return false;
         }
-        state.move(builder, bestPosToGo, MovesPicker.PRIORITY_GO_AWAY_FROM_ATTACK);
+        final Position pos = builder.getPosition();
+        int priority = state.map.underAttack[pos.getX()][pos.getY()].isUnderAttack() ? MovesPicker.PRIORITY_GO_AWAY_FROM_ATTACK : MovesPicker.PRIORITY_SMALL;
+        state.move(builder, bestPosToGo, priority);
         return true;
     }
 
@@ -252,9 +254,23 @@ public class BuilderStrategy {
         List<EntityType> buildingsToBuild = wantToBuild.whichBuildings();
         for (EntityType toBuild : buildingsToBuild) {
             if (!canBuildOrMineResources.isEmpty()) {
-                final Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild);
+                Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild, false);
                 if (builder != null) {
                     canBuildOrMineResources.remove(builder);
+                } else {
+                    builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild, true);
+                    if (builder != null) {
+                        List<Entity> newCanBuildAndMine = new ArrayList<>();
+                        for (Entity checkBuilder : canBuildOrMineResources) {
+                            final Position pos = checkBuilder.getPosition();
+                            if (state.map.underAttack[pos.getX()][pos.getY()].isUnderAttack()) {
+                                underAttack.add(checkBuilder);
+                            } else {
+                                newCanBuildAndMine.add(checkBuilder);
+                            }
+                        }
+                        canBuildOrMineResources = newCanBuildAndMine;
+                    }
                 }
             }
         }
@@ -373,9 +389,9 @@ public class BuilderStrategy {
         return right;
     }
 
-    private static Entity tryToBuildSomething(State state, List<Entity> builders, EntityType what) {
+    private static Entity tryToBuildSomething(State state, List<Entity> builders, EntityType what, boolean okToMoveMyUnits) {
         List<BuildOption> buildOptions = new ArrayList<>();
-        List<Position> allPossiblePositions = state.findAllPossiblePositionsToBuild(what);
+        List<Position> allPossiblePositions = state.findAllPossiblePositionsToBuildABuilding(what, okToMoveMyUnits);
         if (what == HOUSE) {
             allPossiblePositions = filterHousePositions(allPossiblePositions);
         } else if (what == RANGED_BASE) {
@@ -397,11 +413,18 @@ public class BuilderStrategy {
             final Position pos = buildOptions.get(i).where;
             final int maxDistToBuilder = buildOptions.get(i).maxDistToBuilder;
             final List<BuilderWithDist> builderWithDist = closestBuildersSlow(state, pos, what, builders, nBuilders, maxDistToBuilder);
+            if (builderWithDist.isEmpty()) {
+                continue;
+            }
             optionsSmarter.add(new BuildOption(state, builderWithDist, pos, what));
         }
         buildOptions = optionsSmarter;
         Collections.sort(buildOptions);
         for (BuildOption option : buildOptions) {
+            if (okToMoveMyUnits) {
+                state.map.markCellsWillBeUsedForBuilding(option.where, what);
+                return option.builderWithDists.get(0).builder;
+            }
             if (option.builderReadyToBuild != null) {
                 state.buildSomething(option.builderReadyToBuild, what, option.where, MovesPicker.PRIORITY_BUILD);
                 markBuilderAsWorking(state, option.builderReadyToBuild);
@@ -470,6 +493,7 @@ public class BuilderStrategy {
                 if (edge.flow > 0) {
                     MapHelper.PathSuggestion suggestion = suggestionsForBuilders[i].get(j);
                     final Position targetCell = suggestion.targetCell;
+                    state.map.markCellAsWillBeUsedByBuilder(targetCell);
                     state.move(builder, suggestion.firstCellOnPath, MovesPicker.PRIORITY_GO_TO_MINE);
                     if (state.debugInterface != null) {
                         state.debugTargets.put(builder.getPosition(), targetCell);

@@ -1,4 +1,7 @@
-import model.*;
+import model.Entity;
+import model.EntityType;
+import model.MoveAction;
+import model.Position;
 
 import java.util.*;
 
@@ -25,8 +28,8 @@ public class RangedUnitStrategy {
         state.attack(who, what, MovesPicker.PRIORITY_ATTACK);
     }
 
-    private boolean eat(final Entity unit, final Position pos) {
-        if (state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()], MovesPicker.PRIORITY_ATTACK_FOOD)) {
+    private boolean eat(final Entity unit, final Position pos, int priority) {
+        if (state.attack(unit, state.map.entitiesByPos[pos.getX()][pos.getY()], priority)) {
             // TODO: do we need it?
             state.map.updateCellCanGoThrough(unit.getPosition(), MapHelper.CAN_GO_THROUGH.MY_EATING_FOOD_RANGED_UNIT);
             return true;
@@ -101,7 +104,7 @@ public class RangedUnitStrategy {
                 if (!goAwayFromNotGoThere(unit, priority)) {
                     for (Position firstCellInPath : firstCellsInPath) {
                         if (state.isOccupiedByResource(firstCellInPath)) {
-                            eat(unit, firstCellInPath);
+                            eat(unit, firstCellInPath, priority);
                             existGoodMove = true;
                         }
                     }
@@ -111,7 +114,7 @@ public class RangedUnitStrategy {
         } else {
             for (Position firstCellInPath : firstCellsInPath) {
                 if (state.isOccupiedByResource(firstCellInPath)) {
-                    eat(unit, firstCellInPath);
+                    eat(unit, firstCellInPath, priority);
                 } else {
                     state.move(unit, firstCellInPath, priority);
                 }
@@ -141,9 +144,9 @@ public class RangedUnitStrategy {
     }
 
     private boolean goToPosition(final Entity unit, final Position goToPos, int maxDist, boolean okGoToNotGoThere, boolean okGoUnderAttack) {
-        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, false, okGoUnderAttack, MovesPicker.PRIORITY_GO_FOR_ATTACK)) {
-            return true;
-        }
+//        if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, false, okGoUnderAttack, MovesPicker.PRIORITY_GO_FOR_ATTACK)) {
+//            return true;
+//        }
         if (goToPosition(unit, goToPos, maxDist, okGoToNotGoThere, true, okGoUnderAttack, MovesPicker.PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS)) {
             return true;
         }
@@ -171,12 +174,12 @@ public class RangedUnitStrategy {
                     final int myPlayerId = state.playerView.getMyId();
 
                     if (who.getPlayerId() == myPlayerId && who.getEntityType() == EntityType.RANGED_UNIT) {
-                        final List<AttackAction> hisActions = state.getUnitAttackActions(who);
-                        for (AttackAction attackAction : hisActions) {
-                            final Entity resource = state.getEntityById(attackAction.getTarget());
+                        final List<MovesPicker.Move> hisActions = state.getUnitAttackActions(who);
+                        for (MovesPicker.Move moveAttackAction : hisActions) {
+                            final Entity resource = state.getEntityById(moveAttackAction.action.getAttackAction().getTarget());
                             final Position foodPos = resource.getPosition();
                             if (unit.getPosition().distTo(foodPos) <= state.getEntityProperties(unit).getAttack().getAttackRange()) {
-                                if (eat(unit, resource.getPosition())) {
+                                if (eat(unit, resource.getPosition(), moveAttackAction.priority)) {
                                     changed = true;
                                 }
                             }

@@ -44,12 +44,12 @@ public class MovesPicker {
         return actions;
     }
 
-    public List<AttackAction> getAttackActions(Entity entity) {
+    public List<Move> getAttackActions(Entity entity) {
         List<Move> moves = possibilities.get(entity);
-        List<AttackAction> actions = new ArrayList<>();
+        List<Move> actions = new ArrayList<>();
         for (Move move : moves) {
             if (move.action.getAttackAction() != null) {
-                actions.add(move.action.getAttackAction());
+                actions.add(move);
             }
         }
         return actions;

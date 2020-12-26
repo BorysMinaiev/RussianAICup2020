@@ -373,7 +373,17 @@ public class State {
         return false;
     }
 
-    private boolean canBuild(int x, int y, final EntityType type) {
+    private boolean isMyUnit(Entity entity) {
+        if (entity.getPlayerId() == null) {
+            return false;
+        }
+        if (entity.getPlayerId() != playerView.getMyId()) {
+            return false;
+        }
+        return !entity.getEntityType().isBuilding();
+    }
+
+    private boolean canBuild(int x, int y, final EntityType type, boolean okToMoveMyUnits) {
         if (x < 0 || y < 0) {
             return false;
         }
@@ -385,7 +395,11 @@ public class State {
             for (int checkY = y; checkY < y + objSize; checkY++) {
                 Entity there = map.entitiesByPos[checkX][checkY];
                 if (there != null) {
-                    return false;
+                    if (isMyUnit(there) && okToMoveMyUnits) {
+
+                    } else {
+                        return false;
+                    }
                 }
                 if (map.canGoThrough[x][y] == MapHelper.CAN_GO_THROUGH.UNKNOWN) {
                     return false;
@@ -399,10 +413,10 @@ public class State {
     }
 
     private boolean canBuild(final Position pos, final EntityType type) {
-        return canBuild(pos.getX(), pos.getY(), type);
+        return canBuild(pos.getX(), pos.getY(), type, false);
     }
 
-    public List<Position> findPossiblePositionToBuild(final Entity who, final EntityType what) {
+    public List<Position> findPossiblePositionToBuildUnit(final Entity who, final EntityType what) {
         int whoSize = getEntityTypeProperties(who.getEntityType()).getSize();
         int whatSize = getEntityTypeProperties(what).getSize();
         Position bottomLeft = who.getPosition().shift(-whatSize, -whatSize);
@@ -417,12 +431,12 @@ public class State {
         return positionsWhereCanBuild;
     }
 
-    public List<Position> findAllPossiblePositionsToBuild(final EntityType what) {
+    public List<Position> findAllPossiblePositionsToBuildABuilding(final EntityType what, boolean okToMoveMyUnits) {
         List<Position> positions = new ArrayList<>();
         final int whatSize = getEntityTypeProperties(what).getSize();
         for (int x = 0; x + whatSize <= playerView.getMapSize(); x++) {
             for (int y = 0; y + whatSize <= playerView.getMapSize(); y++) {
-                if (canBuild(x, y, what)) {
+                if (canBuild(x, y, what, okToMoveMyUnits)) {
                     positions.add(new Position(x, y));
                 }
             }
@@ -530,7 +544,7 @@ public class State {
         return movesPicker.getMoveActions(entity);
     }
 
-    public List<AttackAction> getUnitAttackActions(Entity entity) {
+    public List<MovesPicker.Move> getUnitAttackActions(Entity entity) {
         return movesPicker.getAttackActions(entity);
     }
 

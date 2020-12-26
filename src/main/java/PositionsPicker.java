@@ -65,7 +65,7 @@ public class PositionsPicker {
     }
 
     static List<PositionWithScore> pickPositionToBuildUnit(final State state, final Entity who, final EntityType what) {
-        List<Position> unitPositions = state.findPossiblePositionToBuild(who, what);
+        List<Position> unitPositions = state.findPossiblePositionToBuildUnit(who, what);
         if (unitPositions.isEmpty()) {
             return new ArrayList<>();
         }
