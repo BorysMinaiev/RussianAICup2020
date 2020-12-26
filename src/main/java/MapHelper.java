@@ -14,6 +14,7 @@ public class MapHelper {
     final List<Position> safePositionsToMine;
     final ProtectionBalance protectionBalance;
     final CachedArrays.IntArray willBeUsedByBuilders;
+    final FreedomPath freedomPath;
 
     public void markCellAsWillBeUsedByBuilder(Position targetCell) {
         willBeUsedByBuilders.put(CompressedCoords.compress(targetCell), 1);
@@ -258,6 +259,7 @@ public class MapHelper {
         this.protectionBalance = new ProtectionBalance(this);
         final int mapSize = state.playerView.getMapSize();
         willBeUsedByBuilders = new CachedArrays.IntArray(mapSize * mapSize);
+        freedomPath = new FreedomPath(state, this);
     }
 
     private int[][] computeDistToClosesEnemyRangedUnit() {
@@ -571,7 +573,7 @@ public class MapHelper {
         }
 
         @Override
-        public int getEdgeCost(CAN_GO_THROUGH type, int straightDistToTarget) {
+        public int getEdgeCost(CAN_GO_THROUGH type, int straightDistToTarget, int x, int y) {
             if (straightDistToTarget <= skipLastNCells) {
                 return 1;
             }
@@ -994,6 +996,9 @@ public class MapHelper {
         final Position startPos;
 
         boolean isTargetCell(int x, int y) {
+            if (freedomPath.isOnPath(x, y)) {
+                return false;
+            }
             for (int it = 0; it < dx.length; it++) {
                 final int nx = x + dx[it];
                 final int ny = y + dy[it];

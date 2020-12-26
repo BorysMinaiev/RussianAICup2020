@@ -390,6 +390,15 @@ public class Debug {
         debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices, PrimitiveType.LINES)));
     }
 
+    private static void showFreedomPath(final State state, final DebugInterface debugInterface) {
+        List<Vec2Float> trianglePoints = new ArrayList<>();
+        for (Position pos : state.map.freedomPath.path) {
+            fillCell(trianglePoints, pos.getX(), pos.getY());
+        }
+        ColoredVertex[] vertices2 = convertVerticesToList(trianglePoints, Color.TRANSPARENT_BLUE);
+        debugInterface.send(new DebugCommand.Add(new DebugData.Primitives(vertices2, PrimitiveType.TRIANGLES)));
+    }
+
     public static void printSomeDebug(final DebugInterface debugInterface, final State state, boolean isBetweenTicks, Action action) {
         if (debugInterface == null) {
             return;
@@ -415,6 +424,7 @@ public class Debug {
         showActions(state, debugInterface, action);
         showSpecialAgents(state, debugInterface);
 //        showTopBalances(state, debugInterface);
+        showFreedomPath(state, debugInterface);
 
         debugInterface.send(new DebugCommand.Flush());
     }

@@ -44,8 +44,8 @@ public class CellsUtils {
 
     public static List<Position> getPositionsOnRectBorderCCW(final Position bottomLeft, final Position topRight) {
         List<Position> positions = new ArrayList<>();
-        final int width = topRight.getX() - bottomLeft.getX() + 1;
-        final int height = topRight.getY() - bottomLeft.getY() + 1;
+        final int width = topRight.getX() - bottomLeft.getX();
+        final int height = topRight.getY() - bottomLeft.getY();
         for (int dx = 0; dx < width; dx++) {
             positions.add(bottomLeft.shift(dx, 0));
         }

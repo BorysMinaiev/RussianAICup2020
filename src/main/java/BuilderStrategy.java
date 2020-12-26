@@ -111,7 +111,9 @@ public class BuilderStrategy {
             }
             this.ticksToBuild = computeTicksToBuild(state, builderWithDists, what);
             // TODO: change constant?
-            this.score = (ticksToBuild + occupiedCellsNearby.size() * 5) * 1000 + distToZero;
+            final int size = state.getEntityTypeProperties(what).getSize();
+            int numCellsOnFreedomPath = state.map.freedomPath.getNumCellsOnPathFromRect(where, where.shift(size - 1, size - 1));
+            this.score = (numCellsOnFreedomPath * 100 + ticksToBuild + occupiedCellsNearby.size() * 5) * 1000 + distToZero;
             builderReadyToBuild = null;
             for (BuilderWithDist builderWithDist : builderWithDists) {
                 if (builderWithDist.dist == 1) {
@@ -148,6 +150,9 @@ public class BuilderStrategy {
 
     static boolean mineRightNow(final State state, final Entity builder) {
         final Position pos = builder.getPosition();
+        if (state.map.freedomPath.isOnPath(pos)) {
+            return false;
+        }
         int[] dx = Directions.dx;
         int[] dy = Directions.dy;
         for (int it = 0; it < dx.length; it++) {

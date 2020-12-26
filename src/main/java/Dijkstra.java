@@ -10,7 +10,7 @@ public class Dijkstra {
     interface DijkstraHandler {
         boolean canGoThrough(MapHelper.CAN_GO_THROUGH type, MapHelper.UNDER_ATTACK underAttack, int x, int y, int dist);
 
-        int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through, int straightDistToTarget);
+        int getEdgeCost(MapHelper.CAN_GO_THROUGH can_go_through, int straightDistToTarget, int x, int y);
 
         boolean isOkGoNotGoThere();
 
@@ -23,18 +23,20 @@ public class Dijkstra {
         int getSkipLastNCells();
     }
 
-    class State implements QueueDist {
+    static class State implements QueueDist {
         final CachedArrays.IntArray seen;
         final VertexPriorityQueue pq;
         final Position targetPos;
         final DijkstraHandler handler;
+        final MapHelper mapHelper;
 
-        State(Position targetPos, DijkstraHandler handler, final int mapSize) {
+        State(Position targetPos, DijkstraHandler handler, final int mapSize, MapHelper mapHelper) {
             final int arraySize = mapSize * mapSize;
             seen = CachedArrays.getNewIntArray(arraySize);
             pq = new VertexPriorityQueue(arraySize);
             this.targetPos = targetPos;
             this.handler = handler;
+            this.mapHelper = mapHelper;
             addVertexToQueue(targetPos.getX(), targetPos.getY(), 0);
         }
 
@@ -95,7 +97,7 @@ public class Dijkstra {
         @Override
         public int getEdgeCost(int x, int y) {
             int straightDistToTarget = targetPos.distTo(x, y);
-            return handler.getEdgeCost(mapHelper.canGoThrough[x][y], straightDistToTarget);
+            return handler.getEdgeCost(mapHelper.canGoThrough[x][y], straightDistToTarget, x, y);
         }
     }
 
@@ -160,7 +162,7 @@ public class Dijkstra {
                 handler.isOkEatFood());
         State state = statesByProperties.get(properties);
         if (state == null) {
-            state = new State(targetPos, handler, mapSize);
+            state = new State(targetPos, handler, mapSize, mapHelper);
             statesByProperties.put(properties, state);
         }
         state.getFirstPathOnPath(startPos, maxDist);
