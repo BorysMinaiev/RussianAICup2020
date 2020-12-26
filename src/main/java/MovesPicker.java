@@ -143,6 +143,9 @@ public class MovesPicker {
                     continue;
                 }
             }
+            if (state.map.underAttack[nextPos.getX()][nextPos.getY()] == MapHelper.UNDER_ATTACK.UNDER_ATTACK_DO_NOT_GO_THERE) {
+                continue;
+            }
             moves.add(new Move(unit, nextPos, EntityAction.createMoveAction(nextPos, false, false), PRIORITY_NOTHING));
         }
     }

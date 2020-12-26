@@ -84,7 +84,7 @@ public class RangedUnitStrategy {
                 okGoUnderAttack,
                 true);
         if (firstCellsInPath.isEmpty()) {
-            return false;
+            return goAwayFromNotGoThere(unit, priority);
         }
         final Position curPos = unit.getPosition();
         state.addDebugTarget(curPos, goToPos);
