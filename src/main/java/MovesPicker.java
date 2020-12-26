@@ -11,7 +11,7 @@ public class MovesPicker {
     public final static int PRIORITY_GO_FOR_ATTACK_THROUGH_BUILDERS = 15;
     public final static int PRIORITY_BUILD = 30;
     public final static int PRIORITY_REPAIR = 35;
-    public final static int PRIORITY_ATTACK = 100;
+    public final static int PRIORITY_ATTACK = 300;
     public final static int PRIORITY_ATTACK_FOOD = 99;
     public final static int PRIORITY_SMALL = 1;
     public final static int PRIORITY_MAX = 1000;
