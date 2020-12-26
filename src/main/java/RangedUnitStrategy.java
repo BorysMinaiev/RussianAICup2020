@@ -360,17 +360,20 @@ public class RangedUnitStrategy {
         Set<Entity> used = new HashSet<>();
         Set<Entity> importantEnemies = state.needProtection.enemiesToAttack.keySet();
         List<Entity> enemyUnits = new ArrayList<>(state.allEnemiesEntities);
-        MinCostMaxFlow minCostMaxFlow = new MinCostMaxFlow(1 + myUnits.size() + enemyUnits.size() + 1);
-        List<MinCostMaxFlow.Edge>[] edges = new List[myUnits.size()];
+        TargetsMatcher targetsMatcher = new TargetsMatcher(myUnits.size(), enemyUnits.size());
+        List<TargetsMatcher.Edge>[] edges = new List[myUnits.size()];
         List<Entity>[] targets = new List[myUnits.size()];
-        // TODO: optimize speed?
+        for (int j = 0; j < enemyUnits.size(); j++) {
+            if (importantEnemies.contains(enemyUnits.get(j))) {
+                targetsMatcher.markImportantEnemy(j);
+            }
+        }
         for (int i = 0; i < myUnits.size(); i++) {
             Entity unit = myUnits.get(i);
             SpecialAgents.Profile profile = SpecialAgents.getSpecialAgentProfile(state, unit);
             if (profile != null && !profile.shouldProtect()) {
                 continue;
             }
-            minCostMaxFlow.addEdge(0, 1 + i, 1, 0);
             edges[i] = new ArrayList<>();
             targets[i] = new ArrayList<>();
             for (int j = 0; j < enemyUnits.size(); j++) {
@@ -379,25 +382,19 @@ public class RangedUnitStrategy {
                 if (dist > CLOSE_ENOUGH && !importantEnemies.contains(enemyUnits.get(j))) {
                     continue;
                 }
-                long weight = MinCostMaxFlow.pathDistToWeight(dist);
-                edges[i].add(minCostMaxFlow.addEdge(1 + i, 1 + myUnits.size() + j, 1, weight));
+                edges[i].add(targetsMatcher.addEdge(i, j, dist));
                 targets[i].add(enemyUnits.get(j));
             }
         }
-        // TODO: THINK ABOUT CAP = 2!!!
-        final int MY_UNITS_PER_ENEMY = 2;
-        for (int i = 0; i < enemyUnits.size(); i++) {
-            minCostMaxFlow.addEdge(1 + myUnits.size() + i, minCostMaxFlow.n - 1, MY_UNITS_PER_ENEMY, 0);
-        }
-        long flow = minCostMaxFlow.getMinCostMaxFlow(0, minCostMaxFlow.n - 1)[0];
+        boolean needMoreUnits = targetsMatcher.requiresMoreUnits();
         for (int i = 0; i < myUnits.size(); i++) {
             final Entity myUnit = myUnits.get(i);
             if (edges[i] == null) {
                 continue;
             }
             for (int j = 0; j < edges[i].size(); j++) {
-                final MinCostMaxFlow.Edge edge = edges[i].get(j);
-                if (edge.flow > 0) {
+                final TargetsMatcher.Edge edge = edges[i].get(j);
+                if (edge.used) {
                     final Entity enemy = targets[i].get(j);
                     final Position targetCell = enemy.getPosition();
                     // TODO: MAX_VALUE, STAY?
@@ -414,7 +411,7 @@ public class RangedUnitStrategy {
                 }
             }
         }
-        return new ProtectionsResult(used, flow < MY_UNITS_PER_ENEMY * enemyUnits.size());
+        return new ProtectionsResult(used, needMoreUnits);
     }
 
     final int CLOSE_ENOUGH = 20;

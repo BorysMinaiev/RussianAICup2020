@@ -49,30 +49,15 @@ public class NeedProtection {
         Collections.sort(nearbyUnits, new Comparator<Entity>() {
             @Override
             public int compare(Entity o1, Entity o2) {
-                int d1 = updatedDist(state, o1, pos);
-                int d2 = updatedDist(state, o2, pos);
-                if (d1 != d2) {
-                    return Integer.compare(d1, d2);
-                }
-                int myIdDiff1 = Math.abs(o1.getPlayerId() - state.playerView.getMyId());
-                int myIdDiff2 = Math.abs(o2.getPlayerId() - state.playerView.getMyId());
-                return Integer.compare(myIdDiff1, myIdDiff2);
+                int d1 = o1.getPosition().distTo(pos);
+                int d2 = o2.getPosition().distTo(pos);
+                return Integer.compare(d1, d2);
             }
         });
         while (nearbyUnits.size() > MAX_NEARBY_UNITS_TO_CONSIDER) {
             nearbyUnits.remove(nearbyUnits.size() - 1);
         }
-        int balance = 0;
-        int minBalance = 0;
-        for (Entity anotherEntity : nearbyUnits) {
-            if (anotherEntity.getPlayerId() == state.playerView.getMyId()) {
-                balance++;
-            } else {
-                balance--;
-            }
-            minBalance = Math.min(minBalance, balance);
-        }
-        if (minBalance < 0) {
+        if (needsProtectionByNearbyUnits(state, pos, nearbyUnits)) {
             List<Entity> enemies = new ArrayList<>();
             for (Entity entity : nearbyUnits) {
                 if (entity.getPlayerId() == state.playerView.getMyId()) {
@@ -80,20 +65,44 @@ public class NeedProtection {
                 }
                 enemies.add(entity);
             }
-            return new ToPretect(entityToProtect, minBalance, enemies);
+            return new ToPretect(entityToProtect, enemies);
         }
         return null;
+    }
 
+    private static boolean canProtect(final Position pos, final Entity myUnit, final Entity enemyUnit) {
+        return CellsUtils.isBetween(myUnit.getPosition(), pos, enemyUnit.getPosition());
+    }
+
+    private static boolean needsProtectionByNearbyUnits(final State state, final Position pos, List<Entity> units) {
+        int myId = state.playerView.getMyId();
+        for (Entity enemyUnit : units) {
+            if (enemyUnit.getPlayerId() == myId) {
+                continue;
+            }
+            boolean existProtector = false;
+            for (Entity myUnit : units) {
+                if (myUnit.getPlayerId() != myId) {
+                    continue;
+                }
+                if (canProtect(pos, myUnit, enemyUnit)) {
+                    existProtector = true;
+                    break;
+                }
+            }
+            if (!existProtector) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static class ToPretect {
         final Entity entity;
-        final int balance;
         final List<Entity> enemies;
 
-        public ToPretect(Entity entity, int balance, List<Entity> enemies) {
+        public ToPretect(Entity entity, List<Entity> enemies) {
             this.entity = entity;
-            this.balance = balance;
             this.enemies = enemies;
         }
     }

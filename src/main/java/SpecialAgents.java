@@ -10,11 +10,13 @@ public class SpecialAgents {
         Position currentTarget;
         int currentMissionId;
         final boolean defender;
+        final boolean okToProtect;
 
-        public Profile(Position currentTarget, boolean defender) {
+        public Profile(Position currentTarget, boolean defender, boolean okToProtect) {
             this.currentTarget = currentTarget;
             this.currentMissionId = 0;
             this.defender = defender;
+            this.okToProtect = okToProtect;
         }
 
         public boolean shouldUpdateMission(Entity unit) {
@@ -36,11 +38,11 @@ public class SpecialAgents {
         }
 
         public boolean shouldAttack(EntityType entityType) {
-            return !entityType.isBuilding() || defender;
+            return !entityType.isBuilding() || defender || okToProtect;
         }
 
         public boolean shouldProtect() {
-            return currentMissionId > 1 || defender;
+            return currentMissionId > 1 || defender || okToProtect;
         }
     }
 
@@ -57,7 +59,8 @@ public class SpecialAgents {
             final int mapSize = state.playerView.getMapSize();
             Position[] targetPositions = getPredefinedTargets(mapSize);
             boolean defender = State.rnd.nextDouble() < 0.0;
-            return new Profile(targetPositions[State.rnd.nextInt(targetPositions.length)], defender);
+            boolean okToProtect = State.rnd.nextBoolean();
+            return new Profile(targetPositions[State.rnd.nextInt(targetPositions.length)], defender, okToProtect);
         } else {
             return null;
         }

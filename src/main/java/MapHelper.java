@@ -523,7 +523,7 @@ public class MapHelper {
             }
             return switch (type) {
                 case EMPTY_CELL, MY_ATTACKING_UNIT, MY_EATING_FOOD_RANGED_UNIT, MY_BUILDING, MY_BUILDER, MY_WORKING_BUILDER -> 1;
-                case UNKNOWN, FOOD, ENEMY_BUILDING -> 2;
+                case UNKNOWN, FOOD, ENEMY_BUILDING -> 3;
             };
         }
 

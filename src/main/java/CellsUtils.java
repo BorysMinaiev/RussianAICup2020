@@ -60,4 +60,12 @@ public class CellsUtils {
         }
         return positions;
     }
+
+    private static boolean isInside(int value, int from, int to) {
+        return value >= Math.min(from, to) && value <= Math.max(from, to);
+    }
+
+    public static boolean isBetween(Position what, Position from, Position to) {
+        return isInside(what.getX(), from.getX(), to.getX()) && isInside(what.getY(), from.getY(), to.getY());
+    }
 }
