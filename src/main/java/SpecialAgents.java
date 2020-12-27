@@ -50,12 +50,14 @@ public class SpecialAgents {
 
     public static Position[] getPredefinedTargets(final int mapSize) {
         return new Position[]{
-                new Position(mapSize * 4 / 5, mapSize / 5),
-                new Position(mapSize / 5, mapSize * 4 / 5)};
+                new Position(mapSize * 2 / 3, mapSize / 3),
+                new Position(mapSize / 3, mapSize * 2 / 3)};
     }
 
     static Profile createProfileById(final State state, int id) {
-        if (id % 15 < 3) {
+        final int CNT = 3;
+        final int OUT_OF = 15;
+        if (id % OUT_OF >= OUT_OF - CNT) {
             final int mapSize = state.playerView.getMapSize();
             Position[] targetPositions = getPredefinedTargets(mapSize);
             boolean defender = State.rnd.nextDouble() < 0.0;

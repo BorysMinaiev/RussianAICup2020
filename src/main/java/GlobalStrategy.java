@@ -299,7 +299,7 @@ public class GlobalStrategy {
 //            wantToBuild.add(toProtect);
 //        }
         if (needRangedHouse() && state.playerView.getCurrentTick() > Math.min(OpponentTracker.tickWhenSomebodyBuildARangedBase, FIRST_TICK_FOR_RANGED_BASE)) {
-            wantToBuild.add(RANGED_BASE);
+            wantToBuild.forceAdd(RANGED_BASE);
         }
         if (needBuilderBase()) {
             wantToBuild.add(BUILDER_BASE);

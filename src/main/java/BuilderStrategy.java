@@ -92,6 +92,19 @@ public class BuilderStrategy {
             return occupiedCellsNearby;
         }
 
+        int calcScore(State state, Position where, EntityType what, int numCellsOnFreedomPath, int occupiedCellsNearby) {
+            if (what == RANGED_BASE) {
+                final int mapSize = state.playerView.getMapSize();
+                Position idealPos = new Position(mapSize / 3, mapSize / 3);
+                int dist = Math.max(Math.abs(idealPos.getX() - where.getX()), Math.abs(idealPos.getY() - where.getY()));
+                boolean isEnoughResources = state.globalStrategy.whatNextToBuild().enoughResourcesToBuild(what);
+                int ticksWithMultiplier = isEnoughResources ? ticksToBuild : 0;
+                return numCellsOnFreedomPath + ticksWithMultiplier + dist;
+            } else {
+                return (numCellsOnFreedomPath * 100 + ticksToBuild + occupiedCellsNearby * 5) * 1000 + distToZero;
+            }
+        }
+
         BuildOption(final State state, List<BuilderWithDist> builderWithDists, Position where, EntityType what) {
             this.where = where;
             this.builderWithDists = builderWithDists;
@@ -113,7 +126,7 @@ public class BuilderStrategy {
             // TODO: change constant?
             final int size = state.getEntityTypeProperties(what).getSize();
             int numCellsOnFreedomPath = state.map.freedomPath.getNumCellsOnPathFromRect(where, where.shift(size - 1, size - 1));
-            this.score = (numCellsOnFreedomPath * 100 + ticksToBuild + occupiedCellsNearby.size() * 5) * 1000 + distToZero;
+            this.score = calcScore(state, where, what, numCellsOnFreedomPath, occupiedCellsNearby.size());
             builderReadyToBuild = null;
             for (BuilderWithDist builderWithDist : builderWithDists) {
                 if (builderWithDist.dist == 1) {
@@ -259,12 +272,12 @@ public class BuilderStrategy {
         List<EntityType> buildingsToBuild = wantToBuild.whichBuildings();
         for (EntityType toBuild : buildingsToBuild) {
             if (!canBuildOrMineResources.isEmpty()) {
-                Entity builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild, false);
-                if (builder != null) {
-                    canBuildOrMineResources.remove(builder);
+                Set<Entity> builders = tryToBuildSomething(state, canBuildOrMineResources, toBuild, false);
+                if (builders != null) {
+                    canBuildOrMineResources.removeAll(builders);
                 } else {
-                    builder = tryToBuildSomething(state, canBuildOrMineResources, toBuild, true);
-                    if (builder != null) {
+                    builders = tryToBuildSomething(state, canBuildOrMineResources, toBuild, true);
+                    if (builders != null) {
                         List<Entity> newCanBuildAndMine = new ArrayList<>();
                         for (Entity checkBuilder : canBuildOrMineResources) {
                             final Position pos = checkBuilder.getPosition();
@@ -367,8 +380,9 @@ public class BuilderStrategy {
     private static List<BuilderWithDist> closestBuildersSlow(final State state, Position where, EntityType what, List<Entity> builders, int nBuilders, int maxDistToBuilder) {
         final List<Position> initialPositions = allPositionsOfEntityType(state, where, what);
         List<BuilderWithDist> options = new ArrayList<>();
+        int maxDist = what == RANGED_BASE ? Integer.MAX_VALUE : (maxDistToBuilder * 2);
         MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
-                maxDistToBuilder * 2, nBuilders);
+                maxDist, nBuilders);
         for (Map.Entry<Entity, Integer> entry : pathsForBuilders.dists.entrySet()) {
             options.add(new BuilderWithDist(entry.getKey(), entry.getValue()));
         }
@@ -394,7 +408,7 @@ public class BuilderStrategy {
         return right;
     }
 
-    private static Entity tryToBuildSomething(State state, List<Entity> builders, EntityType what, boolean okToMoveMyUnits) {
+    private static Set<Entity> tryToBuildSomething(State state, List<Entity> builders, EntityType what, boolean okToMoveMyUnits) {
         List<BuildOption> buildOptions = new ArrayList<>();
         List<Position> allPossiblePositions = state.findAllPossiblePositionsToBuildABuilding(what, okToMoveMyUnits);
         if (what == HOUSE) {
@@ -428,28 +442,35 @@ public class BuilderStrategy {
         for (BuildOption option : buildOptions) {
             if (okToMoveMyUnits) {
                 state.map.markCellsWillBeUsedForBuilding(option.where, what);
-                return option.builderWithDists.get(0).builder;
+                return new HashSet<>();
             }
             if (option.builderReadyToBuild != null) {
                 state.buildSomething(option.builderReadyToBuild, what, option.where, MovesPicker.PRIORITY_BUILD);
                 markBuilderAsWorking(state, option.builderReadyToBuild);
-                return option.builderReadyToBuild;
+                Set<Entity> usedBuilder = new HashSet<>();
+                usedBuilder.add(option.builderReadyToBuild);
+                return usedBuilder;
             } else {
                 final List<Position> initialPositions = allPositionsOfEntityType(state, option.where, what);
                 // TODO: send more than one worker?
                 // TODO: optimize position by number of workers nearby
+                int needBuilders = what == RANGED_BASE ? 8 : 1;
                 MapHelper.PathsFromBuilders pathsForBuilders = state.map.findPathsToBuilding(initialPositions,
-                        option.maxDistToBuilder * 2, 1);
+                        option.maxDistToBuilder * 2, needBuilders);
                 if (pathsForBuilders.firstCellsInPath.isEmpty()) {
                     continue;
                 }
+                Set<Entity> usedBuilders = new HashSet<>();
                 for (Map.Entry<Entity, List<Position>> entry : pathsForBuilders.firstCellsInPath.entrySet()) {
                     final Entity builder = entry.getKey();
                     for (Position nextPos : entry.getValue()) {
                         state.move(builder, nextPos, MovesPicker.PRIORITY_GO_TO_BUILD);
                     }
                     state.debugTargets.put(builder.getPosition(), option.where);
-                    return builder;
+                    usedBuilders.add(builder);
+                }
+                if (!usedBuilders.isEmpty()) {
+                    return usedBuilders;
                 }
             }
         }

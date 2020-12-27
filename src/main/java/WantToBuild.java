@@ -7,6 +7,7 @@ import java.util.List;
 
 public class WantToBuild {
     int expectedMoreMoney;
+    final int initialExpectedMoreMoney;
     HashSet<EntityType> wantThis;
     final State state;
     boolean acceptMore;
@@ -26,8 +27,13 @@ public class WantToBuild {
             }
         }
         expectedMoreMoney += Math.max(expectedMoreResources - 1, 0);
+        initialExpectedMoreMoney = expectedMoreMoney;
         wantThis = new HashSet<>();
         acceptMore = true;
+    }
+
+    public boolean enoughResourcesToBuild(EntityType entityType) {
+        return state.getEntityTypeProperties(entityType).getInitialCost() <= initialExpectedMoreMoney;
     }
 
     int needMoney(EntityType entityType) {
@@ -37,6 +43,16 @@ public class WantToBuild {
         }
         int numAlready = state.myEntitiesCount.get(entityType);
         return initialCost + numAlready;
+    }
+
+    void forceAdd(EntityType entityType) {
+        int needMoney = needMoney(entityType);
+        if (expectedMoreMoney >= needMoney) {
+            expectedMoreMoney -= needMoney;
+        } else {
+            acceptMore = false;
+        }
+        wantThis.add(entityType);
     }
 
     void add(EntityType entityType) {
